@@ -60,7 +60,7 @@ SEASONS      = ["Long Rain","Short Rain"]
 SEED_VARS    = ["Hybrid","Traditional","Improved"]
 
 # ── Header ────────────────────────────────────────────────
-st.title("🌽 Agricultural Insight — Kenya")
+st.title("🌽 AgriInsight — Kenya")
 st.markdown(
     "**47 Counties · XGBOOST · R² 0.80 · MAE 0.42 t/ha · SHAP Explained**"
 )
