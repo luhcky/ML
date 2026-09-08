@@ -18,7 +18,7 @@ MODEL_DIR = os.path.join(BASE_DIR,"models")
 
 model = joblib.load(f'{MODEL_DIR}/attrition_pipe.pkl')
 FEATURES = joblib.load(f'{MODEL_DIR}/feature_names.pkl')
-scaler = pipeline.named_steps['scaler'] 
+scaler = model.named_steps['scaler'] 
 THRESHOLD = 0.5
 try:
     import shap
