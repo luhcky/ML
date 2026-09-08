@@ -22,27 +22,18 @@ FEATURES = joblib.load(f'{MODEL_DIR}/fraud_feature_names.pkl')
 THRESHOLD = 0.5   # was missing entirely — used everywhere but never defined
 
 # ── SHAP explainer, loaded once at startup ────────────────
+# ── SHAP explainer, loaded once at startup ────────────────
 try:
     import shap
     EXPLAINER = shap.TreeExplainer(model)
     SHAP_AVAILABLE = True
+    SHAP_SPACE = "log_odds"   # XGBoost TreeExplainer default output space
 
     ev = EXPLAINER.expected_value
     raw_ev = float(ev[1]) if hasattr(ev, "__len__") and len(ev) > 1 else float(ev[0] if hasattr(ev, "__len__") else ev)
+    EXPECTED_VALUE = 1 / (1 + np.exp(-raw_ev))   # sigmoid: log-odds -> probability
 
-    # Heuristic: TreeExplainer output space differs by model type.
-    # RandomForest classifiers typically give probability-space values (0-1 range).
-    # XGBoost typically gives log-odds/margin-space values (can be any real number).
-    # If the raw expected_value falls outside a plausible probability range,
-    # treat it as log-odds and convert via sigmoid.
-    if 0.0 <= raw_ev <= 1.0:
-        SHAP_SPACE = "probability"
-        EXPECTED_VALUE = raw_ev
-    else:
-        SHAP_SPACE = "log_odds"
-        EXPECTED_VALUE = 1 / (1 + np.exp(-raw_ev))
-
-    logger.info(f"SHAP loaded. Detected space={SHAP_SPACE}, base_value={EXPECTED_VALUE:.4f}")
+    logger.info(f"SHAP loaded. base_value(log-odds)={raw_ev:.4f} -> base_value(prob)={EXPECTED_VALUE:.4f}")
 except ImportError:
     SHAP_AVAILABLE = False
     SHAP_SPACE = None
