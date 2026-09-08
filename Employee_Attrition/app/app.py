@@ -198,13 +198,13 @@ with tab1:
                     ax.text(label_x, y, f"{v:+.3f}", va="center", ha=ha,
                             fontsize=9, color=TEXT, weight="bold", zorder=4)
 
-               xmin, xmax = min(values) - 0.12, max(values) + 0.12
-               ax.set_xlim(xmin, xmax)
+                xmin, xmax = min(values) - 0.12, max(values) + 0.12
+                ax.set_xlim(xmin, xmax)
 
-               plt.tight_layout()
-               st.pyplot(fig, clear_figure=True)
-               st.caption("🟠 Gold = increases attrition risk.  🟦 Teal = decreases risk.")
-               st.caption(data.get("shap_note", ""))
+                plt.tight_layout()
+                st.pyplot(fig, clear_figure=True)
+                st.caption("🟠 Gold = increases attrition risk.  🟦 Teal = decreases risk.")
+                st.caption(data.get("shap_note", ""))
  
         with col_signals:
             st.subheader("⚡ Risk Signals")
