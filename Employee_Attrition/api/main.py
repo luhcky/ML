@@ -26,9 +26,9 @@ try:
     SHAP_AVAILABLE = True
     ev = EXPLAINER.expected_value
     if hasattr(ev,"__len__") and len(ev) > 1:
-            EXPECTED_VALUE = float(ev[1]) 
+            EXPECTED_VALUE =1 - float(ev[1]) 
     elif hasattr(ev,"__len__"):
-            EXPECTED_VALUE = float (ev[0])
+            EXPECTED_VALUE =1 - float (ev[0])
     else: EXPECTED_VALUE = float(ev)
     logger.info(f'SHAP explainer loaded.Base value={EXPECTED_VALUE:.4f}')
 except ImportError:
@@ -246,7 +246,7 @@ def predict_explain(employee: EmployeeInput):
         X = build_features(employee)
         X_df =pd.DataFrame(X, columns=FEATURES)
         
-        prob = float(model.predict_proba(X)[0][1])
+        prob = 1 - float(model.predict_proba(X)[0][1])
         tier = get_risk_tier(prob)
         
         shap_vals = EXPLAINER.shap_values(X_df)
@@ -310,7 +310,7 @@ def predict_batch(employees: List[EmployeeInput]):
             results, flagged = [], 0
             for emp in employees:
                 X_s  = scaler.transform(build_features(emp))
-                prob = float(model.predict_proba(X_s)[0][1])
+                prob = 1 - float(model.predict_proba(X_s)[0][1])
                 tier = get_risk_tier(prob)
                 if prob >= THRESHOLD: flagged += 1
                 results.append({
