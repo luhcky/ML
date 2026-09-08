@@ -256,7 +256,7 @@ def predict_explain(employee: EmployeeInput):
             feat: round(float(val),6)
             for feat,val in zip(FEATURES,sv_row)
         }
-        sorted_shap = sorted(shap_dict.items(),key=lambda x:abs(x[1]),reserve=True)
+        sorted_shap = sorted(shap_dict.items(),key=lambda x:abs(x[1]),reverse=True)
         top_drivers = [
             {
                 'feature':feat,
