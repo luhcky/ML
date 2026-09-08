@@ -173,39 +173,39 @@ with tab1:
                 colors = [GOLD if v > 0 else TEAL for v in values]
 
                # rounded "pill" bars — thick round-capped lines instead of plain barh
-               for y, v, c in zip(y_pos, values, colors):
-               ax.plot([0, v], [y, y], color=c, linewidth=14,
-                       solid_capstyle="round", zorder=3, alpha=0.95)
+                for y, v, c in zip(y_pos, values, colors):
+                    ax.plot([0, v], [y, y], color=c, linewidth=14,
+                            solid_capstyle="round", zorder=3, alpha=0.95)
 
-               ax.axvline(0, color=MUTED, linewidth=1, linestyle=(0, (4, 3)), zorder=2)
+                ax.axvline(0, color=MUTED, linewidth=1, linestyle=(0, (4, 3)), zorder=2)
 
-               ax.set_yticks(list(y_pos))
-               ax.set_yticklabels(features, fontsize=10.5, color=TEXT)
-               ax.invert_yaxis()
+                ax.set_yticks(list(y_pos))
+                ax.set_yticklabels(features, fontsize=10.5, color=TEXT)
+                ax.invert_yaxis()
 
-               ax.set_xlabel("SHAP value  →  impact on attrition probability",
-                             fontsize=9.5, color=MUTED, labelpad=10)
-               ax.set_title("Top SHAP Drivers", fontsize=17, color=TEXT,
-                            family="serif", weight="bold", pad=16, loc="left")
+                ax.set_xlabel("SHAP value  →  impact on attrition probability",
+                              fontsize=9.5, color=MUTED, labelpad=10)
+                ax.set_title("Top SHAP Drivers", fontsize=17, color=TEXT,
+                             family="serif", weight="bold", pad=16, loc="left")
 
-               for spine in ax.spines.values():
-                   spine.set_visible(False)
-               ax.grid(axis="x", color=GRID, linewidth=0.7, alpha=0.6, zorder=0)
-               ax.tick_params(colors=MUTED, length=0)
-              for y, v in zip(y_pos, values):
-                  label_x = v + (0.018 if v >= 0 else -0.018)
-                  ha = "left" if v >= 0 else "right"
-                  ax.text(label_x, y, f"{v:+.3f}", va="center", ha=ha,
-                          fontsize=9, color=TEXT, weight="bold", zorder=4)
+                for spine in ax.spines.values():
+                    spine.set_visible(False)
+                ax.grid(axis="x", color=GRID, linewidth=0.7, alpha=0.6, zorder=0)
+                ax.tick_params(colors=MUTED, length=0)
+                for y, v in zip(y_pos, values):
+                    label_x = v + (0.018 if v >= 0 else -0.018)
+                    ha = "left" if v >= 0 else "right"
+                    ax.text(label_x, y, f"{v:+.3f}", va="center", ha=ha,
+                            fontsize=9, color=TEXT, weight="bold", zorder=4)
 
-             xmin, xmax = min(values) - 0.12, max(values) + 0.12
-             ax.set_xlim(xmin, xmax)
+               xmin, xmax = min(values) - 0.12, max(values) + 0.12
+               ax.set_xlim(xmin, xmax)
 
-             plt.tight_layout()
-             st.pyplot(fig, clear_figure=True)
-             st.caption("🟠 Gold = increases attrition risk.  🟦 Teal = decreases risk.")
-             st.caption(data.get("shap_note", ""))
-
+               plt.tight_layout()
+               st.pyplot(fig, clear_figure=True)
+               st.caption("🟠 Gold = increases attrition risk.  🟦 Teal = decreases risk.")
+               st.caption(data.get("shap_note", ""))
+ 
         with col_signals:
             st.subheader("⚡ Risk Signals")
             for sig in data.get("risk_factors", []):
