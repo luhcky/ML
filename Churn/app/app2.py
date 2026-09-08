@@ -10,30 +10,67 @@ st.set_page_config(
     layout="wide",
 )
 st.markdown("""
-            <style>
-            .stApp{
-                background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);
-                background-attachment:fixed;
-            }
-            [data-testid="stSidebar"]{
-                background:rgba(15, 12, 41, 0.85) !important;
-                border-right: 1px solid rgba(255,255,255,0.1);
-            }
-            [data-testid="stMetric],[data-testid="stExpander"],[data-testid="stDataFrame"]{
-                background: rgba(255,255,255,0.06) !important;
-                backdrop-filter:blur(12px);
-                border: 1px solid rgba(255,255,255,0.1);
-                border_radius: 15px;
-            }
-            h1,h2,h3,p,label, .stMarkdown{color:#FFFFFF !important;}
-            .stButton>button{
-                background: linear-gradient(90deg, #667eea,#764ba2);
-                color: white; border-radius: 12px; border:none;
-                font-weight:bold;
-            }
-            .stButton.button:hover{transform:scale(1.02);}
-            </style>
-            """, unsafe_allow_html=True)
+<style>
+/* ---- App background: blue/cyan telecom mesh ---- */
+[data-testid="stAppViewContainer"] {
+    background:
+        radial-gradient(900px 500px at 20% -10%, rgba(37,99,235,0.32), transparent 55%),
+        radial-gradient(800px 500px at 100% 100%, rgba(6,182,212,0.22), transparent 55%),
+        linear-gradient(160deg, #080C1A 0%, #0F1733 60%, #0D1F3C 100%);
+}
+/* ---- Sidebar ---- */
+[data-testid="stSidebar"] {
+    background: rgba(8, 12, 26, 0.60);
+    backdrop-filter: blur(14px);
+    border-right: 1px solid rgba(37,99,235,0.20);
+}
+/* ---- Metric cards ---- */
+[data-testid="stMetric"] {
+    background: rgba(37,99,235,0.10);
+    border: 1px solid rgba(37,99,235,0.28);
+    border-radius: 18px;
+    padding: 18px 20px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(37,99,235,0.15);
+}
+[data-testid="stMetricLabel"] { color: #93C5FD !important; }
+[data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 700; }
+/* ---- Tabs ---- */
+[data-testid="stTabs"] button[role="tab"] {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px 10px 0 0;
+    color: #93C5FD;
+}
+[data-testid="stTabs"] button[aria-selected="true"] {
+    background: rgba(37,99,235,0.28);
+    color: #FFFFFF;
+}
+/* ---- Expanders ---- */
+[data-testid="stExpander"] {
+    background: rgba(37,99,235,0.07);
+    border: 1px solid rgba(37,99,235,0.18);
+    border-radius: 12px;
+}
+/* ---- Buttons ---- */
+.stButton button {
+    background: linear-gradient(90deg, #2563EB, #06B6D4);
+    color: #FFFFFF;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+}
+.stButton button:hover { filter: brightness(1.15); }
+/* ---- Containers ---- */
+[data-testid="stDataFrame"], .stAlert {
+    border-radius: 14px;
+}
+/* ---- Progress bar ---- */
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #2563EB, #06B6D4);
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 API_URL = "https://churn-5i6f.onrender.com"
 
