@@ -1,280 +1,507 @@
+
 import streamlit as st
+import requests
 import pandas as pd
-import numpy as np
-import joblib
 import matplotlib.pyplot as plt
-import matplotlib;matplotlib.use('Agg')
+import matplotlib
+matplotlib.use("Agg")
+import io
 
 st.set_page_config(
-    page_title ='Employee Attrition Predictor',
-    page_icon = '',
-    layout ='wide',
-    initial_sidebar_state ='expanded')
-
-@st.cache_resource
-def load_artifacts():
-    model = joblib.load('models/attrition_pipe.pkl')
-    features = joblib.load('models/feature_names.pkl')
-    return model,features
-model, feature_names = load_artifacts()
-st.title('Employee Attrition Prediction System')
-st.markdown('Predicting who is likely to resign before they do.')
-
-st.sidebar.header('Employee Profile')
-st.sidebar.caption('Fill in the employee details')
-with st.sidebar.expander('Personal Details', expanded = True):
-    age = st.slider('Age', 18, 60, 30)
-    gender = st.selectbox('Gender',['Male','Female'])
-    marital_status = st.selectbox('Marital Status',['Single','Married','Divorced'])
-    distance_home = st.slider('Distance From Home(miles)',1,29,5)
-    
-with st.sidebar.expander('Job Details',expanded=True):
-    department     = st.selectbox('Department',
-                        ['Research & Development', 'Sales', 'Human Resources'])
-    job_role       = st.selectbox('Job Role', [
-        'Sales Executive', 'Research Scientist', 'Laboratory Technician',
-        'Manufacturing Director', 'Healthcare Representative',
-        'Manager', 'Sales Representative', 'Research Director',
-        'Human Resources'])
-    job_level          = st.selectbox('Job Level (1=Entry, 5=Senior)', [1,2,3,4,5])
-    job_involvement    = st.selectbox('Job Involvement',
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:'Low',2:'Medium',3:'High',4:'Very High'}[x])
-    job_satisfaction   = st.selectbox('Job Satisfaction',
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:'Low',2:'Medium',3:'High',4:'Very High'}[x])
-    overtime           = st.selectbox('Works Overtime?', ['No', 'Yes'])
-    business_travel    = st.selectbox('Business Travel',
-                            ['Non-Travel', 'Travel_Rarely', 'Travel_Frequently'])
-
-with st.sidebar.expander('💰 Compensation', expanded=True):
-    monthly_income     = st.number_input('Monthly Income ($)', 1000, 20000, 5000, 500)
-    percent_hike       = st.slider('Last Salary Hike (%)', 11, 25, 13)
-    stock_option       = st.selectbox('Stock Option Level (0=None, 3=High)', [0,1,2,3])
-
-with st.sidebar.expander('📈 Experience & Satisfaction', expanded=True):
-    total_working_yrs  = st.slider('Total Working Years', 0, 40, 8)
-    years_at_company   = st.slider('Years at Company', 0, 40, 5)
-    years_in_role      = st.slider('Years in Current Role', 0, 18, 3)
-    years_since_promo  = st.slider('Years Since Last Promotion', 0, 15, 1)
-    years_with_mgr     = st.slider('Years With Current Manager', 0, 17, 3)
-    num_companies      = st.slider('Number of Companies Worked', 0, 9, 2)
-    training_times     = st.slider('Training Sessions Last Year', 0, 6, 3)
-    env_satisfaction   = st.selectbox('Environment Satisfaction',
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:'Low',2:'Medium',3:'High',4:'Very High'}[x])
-    rel_satisfaction   = st.selectbox('Relationship Satisfaction',
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:'Low',2:'Medium',3:'High',4:'Very High'}[x])
-    work_life_balance  = st.selectbox('Work-Life Balance',
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:'Bad',2:'Good',3:'Better',4:'Best'}[x])
-
-predict_btn = st.sidebar.button('🔍 Predict Attrition Risk', type='primary',
-                                 use_container_width=True)
-
-travel_enc = {'Non-Travel': 0, 'Travel_Rarely': 1, 'Travel_Frequently': 2}
-
-row = {f: 0 for f in feature_names}
-
-
-row.update({
-    'Age'                      : age,
-    'BusinessTravel'           : travel_enc[business_travel],
-    'DailyRate'                : 800,
-    'DistanceFromHome'         : distance_home,
-    'Education'                : 3,
-    'EnvironmentSatisfaction'  : env_satisfaction,
-    'Gender'                   : 1 if gender == 'Male' else 0,
-    'HourlyRate'               : 65,
-    'JobInvolvement'           : job_involvement,
-    'JobLevel'                 : job_level,
-    'JobSatisfaction'          : job_satisfaction,
-    'MonthlyIncome'            : monthly_income,
-    'MonthlyRate'              : 14000,
-    'NumCompaniesWorked'       : num_companies,
-    'OverTime'                 : 1 if overtime == 'Yes' else 0,
-    'PercentSalaryHike'        : percent_hike,
-    'PerformanceRating'        : 3,
-    'RelationshipSatisfaction' : rel_satisfaction,
-    'StockOptionLevel'         : stock_option,
-    'TotalWorkingYears'        : total_working_yrs,
-    'TrainingTimesLastYear'    : training_times,
-    'WorkLifeBalance'          : work_life_balance,
-    'YearsAtCompany'           : years_at_company,
-    'YearsInCurrentRole'       : years_in_role,
-    'YearsSinceLastPromotion'  : years_since_promo,
-    'YearsWithCurrManager'     : years_with_mgr,
-    
-    'LogMonthlyIncome'         : np.log1p(monthly_income),
-    'YearsPerCompany'          : total_working_yrs / max(num_companies, 1),
-    'PromotionLag'             : years_since_promo - years_in_role,
-    'IncomePerYear'            : monthly_income / (total_working_yrs + 1),
-})
-
-# HighRiskProfile flag
-is_single   = 1 if marital_status == 'Single' else 0
-row['HighRiskProfile'] = int(
-    age < 32 and is_single == 1 and travel_enc[business_travel] == 2
+    page_title="Employee Attrition Prediction",
+    page_icon="👥",
+    layout="wide",
 )
 
-# One-hot: Department
-if 'Department_Research & Development' in row:
-    row['Department_Research & Development'] = 1 if department == 'Research & Development' else 0
-if 'Department_Sales' in row:
-    row['Department_Sales'] = 1 if department == 'Sales' else 0
+API_URL = "https://employee-attrition-fvgg.onrender.com"
 
-# One-hot: MaritalStatus
-if 'MaritalStatus_Married' in row:
-    row['MaritalStatus_Married'] = 1 if marital_status == 'Married' else 0
-if 'MaritalStatus_Single' in row:
-    row['MaritalStatus_Single'] = 1 if marital_status == 'Single' else 0
+# ── Header ────────────────────────────────────────────────
+st.title("👥 Employee Attrition Prediction")
+st.markdown("**IBM HR Analytics · XGBoost · SHAP Explained · Batch Scoring**")
 
-# One-hot: JobRole
-role_key = f'JobRole_{job_role}'
-if role_key in row:
-    row[role_key] = 1
+# ── API health check ──────────────────────────────────────
+try:
+    h = requests.get(f"{API_URL}/health", timeout=3).json()
+    shap_ok = h.get("shap_available", False)
+    st.success(
+        f"✅ API connected — "
+        f"Threshold: {h.get('threshold','?')} | "
+        f"Features: {h.get('feature_count','?')} | "
+        f"SHAP: {'✓ enabled' if shap_ok else '✗ install shap'}"
+    )
+except Exception:
+    st.error("⚠ API not running.")
+    st.stop()
 
+st.divider()
 
-if predict_btn:
-    X_input  = pd.DataFrame([row])[feature_names]
-    prob     = model.predict_proba(X_input)[0][1]
-    flagged  = prob >= 0.5
+# ── Tabs — Single vs Batch ────────────────────────────────
+tab1, tab2 = st.tabs(["👤 Single Employee", "📂 Batch CSV Upload"])
 
-    # Risk tier
-    if   prob >= 0.70:          risk, emoji, color = 'CRITICAL', '🔴', 'error'
-    elif prob >= 0.5:     risk, emoji, color = 'HIGH',     '🟠', 'error'
-    elif prob >= 0.4: risk, emoji, color = 'MEDIUM',   '🟡', 'warning'
-    else:                       risk, emoji, color = 'LOW',      '🟢', 'success'
+# ══════════════════════════════════════════════════════════
+# TAB 1 — SINGLE EMPLOYEE
+# ══════════════════════════════════════════════════════════
+with tab1:
+    st.subheader("Score a Single Employee")
 
-    # Results banner
-    st.subheader('📊 Prediction Results')
-    r1, r2, r3 = st.columns(3)
-    r1.metric('Attrition Probability', f'{prob:.1%}',
-              delta=f'{(prob - 0.161):+.1%} vs baseline')
-    r2.metric('Risk Level', f'{emoji} {risk}')
-    r3.metric('Threshold', "0.5",
-              help='Score above this = flagged for HR review')
+    # Sidebar inputs
+    with st.sidebar:
+        st.header("Employee Profile")
 
-    if flagged:
-        st.error(
-            f'⚠ ATTRITION RISK DETECTED '
-            f'Score {prob:.1%} . '
-            f'Recommend HR retention conversation.')
-    else:
-        st.success(
-            f'**✅ LOW ATTRITION RISK**  '
-            f'Score {prob:.1%} '
-            f'Employee appears stable.')
+        with st.expander("Personal", expanded=True):
+            age         = st.slider("Age", 18, 60, 28)
+            gender      = st.selectbox("Gender", ["Male", "Female"])
+            marital     = st.selectbox("Marital Status",
+                            ["Single", "Married", "Divorced"])
+            distance    = st.slider("Distance From Home (miles)", 1, 29, 10)
 
-    # Risk score bar
-    prob=float(prob)
-    st.progress(prob, text=f'Risk score: {prob:.1%}')
+        with st.expander("Job", expanded=True):
+            dept        = st.selectbox("Department",
+                            ["Research & Development","Sales","Human Resources"])
+            job_role    = st.selectbox("Job Role", [
+                "Sales Executive","Research Scientist","Laboratory Technician",
+                "Manufacturing Director","Healthcare Representative","Manager",
+                "Sales Representative","Research Director","Human Resources"])
+            job_level   = st.selectbox("Job Level (1=Entry, 5=Senior)",
+                            [1,2,3,4,5])
+            job_sat     = st.selectbox("Job Satisfaction",
+                            [1,2,3,4], index=1,
+                            format_func=lambda x:{1:"Low",2:"Medium",
+                                                  3:"High",4:"Very High"}[x])
+            overtime    = st.selectbox("Works Overtime?", ["No","Yes"])
+            travel      = st.selectbox("Business Travel",
+                            ["Non-Travel","Travel_Rarely","Travel_Frequently"])
 
-    st.divider()
+        with st.expander("Compensation", expanded=True):
+            income      = st.number_input("Monthly Income ($)",
+                            1000, 20000, 3500, 500)
+            stock       = st.selectbox("Stock Option Level", [0,1,2,3])
+            hike        = st.slider("Last Salary Hike (%)", 11, 25, 13)
 
+        with st.expander("Experience", expanded=True):
+            total_yrs   = st.slider("Total Working Years", 0, 40, 5)
+            yrs_company = st.slider("Years at Company", 0, 40, 3)
+            yrs_role    = st.slider("Years in Current Role", 0, 18, 2)
+            yrs_promo   = st.slider("Years Since Last Promotion", 0, 15, 1)
+            yrs_mgr     = st.slider("Years With Manager", 0, 17, 2)
+            num_co      = st.slider("Companies Worked At", 0, 9, 2)
+            training    = st.slider("Training Sessions Last Year", 0, 6, 3)
+            env_sat     = st.selectbox("Environment Satisfaction",
+                            [1,2,3,4], index=2,
+                            format_func=lambda x:{1:"Low",2:"Medium",
+                                                  3:"High",4:"Very High"}[x])
+            rel_sat     = st.selectbox("Relationship Satisfaction",
+                            [1,2,3,4], index=2,
+                            format_func=lambda x:{1:"Low",2:"Medium",
+                                                  3:"High",4:"Very High"}[x])
+            wlb         = st.selectbox("Work-Life Balance",
+                            [1,2,3,4], index=2,
+                            format_func=lambda x:{1:"Bad",2:"Good",
+                                                  3:"Better",4:"Best"}[x])
 
-    col_shap, col_factors = st.columns([1.4, 1])
+        predict_btn = st.button(
+            "🔍 Predict + Explain",
+            type="primary",
+            use_container_width=True
+        )
 
-    with col_shap:
-        st.subheader('🧠 SHAP Explanation — Why this score?')
-        try:
-            import shap
-            xgb_model =model.named_steps['xgb']
-            X_scaled = model[:-1].transform(X_input)
-            explainer = shap.TreeExplainer(xgb_model)
-            sv = explainer.shap_values(
-                pd.DataFrame(X_scaled, columns=feature_names))
-            sv = sv[1] if isinstance(sv, list) else sv
-            exp_val = (explainer.expected_value[1]
-                       if hasattr(explainer.expected_value, '__len__')
-                       else explainer.expected_value)
-            shap.waterfall_plot(
-                shap.Explanation(
-                    values=sv[0],
-                    base_values=exp_val,
-                    data=X_scaled[0],
-                    feature_names=feature_names
-                ),
-                show=False, max_display=12
-            )
-            fig = plt.gcf()
-            st.pyplot(fig, clear_figure=True)
-            st.caption(
-                '🔴 Red bars push towards **attrition**.  '
-                '🔵 Blue bars push towards **staying**.')
-        except ImportError:
-            st.info('Install shap for waterfall explanations: pip install shap')
-        except Exception as e:
-            st.info(f'SHAP explanation error: {e}')
+    # Build payload
+    payload = {
+        "Age": age, "MonthlyIncome": income, "OverTime": overtime,
+        "JobSatisfaction": job_sat, "StockOptionLevel": stock,
+        "JobLevel": job_level, "TotalWorkingYears": total_yrs,
+        "YearsAtCompany": yrs_company, "YearsInCurrentRole": yrs_role,
+        "YearsSinceLastPromotion": yrs_promo, "YearsWithCurrManager": yrs_mgr,
+        "NumCompaniesWorked": num_co, "BusinessTravel": travel,
+        "MaritalStatus": marital, "Department": dept, "JobRole": job_role,
+        "Gender": gender, "EnvironmentSatisfaction": env_sat,
+        "RelationshipSatisfaction": rel_sat, "WorkLifeBalance": wlb,
+        "Education": 3, "JobInvolvement": 3, "PerformanceRating": 3,
+        "PercentSalaryHike": hike, "TrainingTimesLastYear": training,
+        "DistanceFromHome": distance, "DailyRate": 800,
+        "HourlyRate": 65, "MonthlyRate": 14000,
+    }
 
-    with col_factors:
-        st.subheader('⚡ Risk Factors Summary')
+    if predict_btn:
+        with st.spinner("Scoring and generating SHAP explanation..."):
+            try:
+                r = requests.post(f"{API_URL}/predict/explain",
+                                    json=payload, timeout=15)
+                data = r.json()
+            except Exception as e:
+                st.error(f"API error: {e}")
+                st.stop()
 
-        
-        flags = []
-        if overtime == 'Yes':
-            flags.append('🔴 Works overtime — 3× higher attrition risk')
-        if marital_status == 'Single':
-            flags.append('🟠 Single — more mobile, higher exit rate')
-        if business_travel == 'Travel_Frequently':
-            flags.append('🟠 Frequent travel — burnout risk')
-        if job_satisfaction <= 2:
-            flags.append('🔴 Low job satisfaction — key driver of exits')
-        if job_level == 1:
-            flags.append('🟠 Entry-level — highest attrition tier')
-        if stock_option == 0:
-            flags.append('🟡 No stock options — less financial lock-in')
-        if age < 30:
-            flags.append('🟡 Age < 30 — exploring career options')
-        if years_since_promo >= 3 and years_in_role >= 3:
-            flags.append('🟠 Promotion lag — career stagnation signal')
-        if monthly_income < 3000:
-            flags.append('🔴 Below-median income — compensation risk')
-        if num_companies >= 4:
-            flags.append('🟠 Worked 4+ companies — history of job-hopping')
+        prob = data["attrition_probability"]
+        tier = data["risk_tier"]
 
-        
-        protects = []
-        if stock_option >= 2:
-            protects.append('🟢 Stock options — strong retention incentive')
-        if years_at_company >= 8:
-            protects.append('🟢 Long tenure — high loyalty')
-        if work_life_balance >= 3:
-            protects.append('🟢 Good work-life balance')
-        if job_satisfaction >= 3:
-            protects.append('🟢 High job satisfaction')
-        if overtime == 'No' and job_level >= 3:
-            protects.append('🟢 Senior + no overtime — low burnout risk')
+        # Metrics
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("Attrition Probability", f"{prob*100:.1f}%", delta=f"{(prob-0.161)*100:+.1f}% vs baseline")
+        c2.metric("Risk Tier",  tier)
+        c3.metric("Decision",   "⚠ Will Leave" if data["will_leave"] else "✅ Will Stay")
+        c4.metric("Response",   f"{data['processing_ms']}ms")
 
-        if flags:
-            st.markdown('Risk signals:')
-            for f in flags:
-                st.markdown(f)
-        if protects:
-            st.markdown('Protective factors:')
-            for p in protects:
-                st.markdown(p)
-        if not flags and not protects:
-            st.markdown('No strong risk signals detected for this profile.')
+        if tier == "CRITICAL":
+            st.error(f"🚨 CRITICAL — {data['recommendation']}")
+        elif tier == "HIGH":
+            st.error(f"⚠ HIGH — {data['recommendation']}")
+        elif tier == "MEDIUM":
+            st.warning(f"🟡 MEDIUM — {data['recommendation']}")
+        else:
+            st.success(f"✅ LOW — {data['recommendation']}")
 
+        st.progress(min(prob, 1.0),
+                    text=f"Attrition score: {prob*100:.1f}%")
         st.divider()
 
-        # Recommended HR action
-        st.subheader('📋 Recommended Action')
-        if prob >= 0.70:
-            st.error('Immediate action required.\n'
-                     '- Schedule 1:1 with manager this week\n'
-                     '- Review compensation vs market rate\n'
-                     '- Explore internal mobility options\n'
-                     '- Consider retention bonus if flight risk confirmed')
-        elif prob >= 0.5:
-            st.warning('Schedule proactive check-in.\n'
-                       '- Quarterly career development conversation\n'
-                       '- Review workload and overtime hours\n'
-                       '- Discuss promotion timeline if overdue')
-        else:
-            st.success('Routine engagement only.\n'
-                       '- Include in standard pulsesurvey\n'
-                       '- Maintain normal check-in cadence')
- 
+        col_shap, col_signals = st.columns([1.4, 1])
+
+        with col_shap:
+            st.subheader("🧠 SHAP Explanation")
+            st.caption(data.get("shap_explanation", ""))
+            top_drivers = data.get("shap_top_drivers", [])
+            if top_drivers:
+                features = [d["feature"]    for d in top_drivers]
+                values   = [d["shap_value"] for d in top_drivers]
+                colors   = ["#EF4444" if v > 0 else "#3B82F6" for v in values]
+                fig, ax  = plt.subplots(figsize=(7, 3.5))
+                bars     = ax.barh(range(len(features)), values,
+                                   color=colors, edgecolor="white", height=0.6)
+                ax.set_yticks(range(len(features)))
+                ax.set_yticklabels(features, fontsize=9)
+                ax.axvline(0, color="black", linewidth=0.8, linestyle="--")
+                ax.set_xlabel("SHAP Value (impact on attrition probability)", fontsize=9)
+                ax.set_title("Top SHAP Drivers — This Employee",
+                             fontsize=11, fontweight="bold")
+                ax.invert_yaxis()
+                for bar, val in zip(bars, values):
+                    xpos = val + 0.002 if val >= 0 else val - 0.002
+                    ax.text(xpos, bar.get_y() + bar.get_height()/2,
+                            f"{val:+.3f}", va="center",
+                            ha="left" if val >= 0 else "right",
+                            fontsize=8, color="#1F2937")
+                plt.tight_layout()
+                st.pyplot(fig, clear_figure=True)
+                st.caption("🔴 Red = increases attrition risk. 🔵 Blue = decreases risk.")
+                st.caption(data.get("shap_note", ""))
+
+        with col_signals:
+            st.subheader("⚡ Risk Signals")
+            for sig in data.get("risk_factors", []):
+                st.warning(f"▸ {sig}")
+            st.subheader("🛡️ Protective Factors")
+            for prot in data.get("protective_factors", []):
+                st.success(f"▸ {prot}")
+            st.divider()
+            st.subheader("📋 Recommended Action")
+            if tier in ("CRITICAL","HIGH"):
+                st.error("- Schedule 1:1 this week\n"
+                         "- Review compensation vs market\n"
+                         "- Explore internal mobility options")
+            elif tier == "MEDIUM":
+                st.warning("- Quarterly career development conversation\n"
+                           "- Review workload and overtime\n"
+                           "- Discuss promotion timeline")
+            else:
+                st.success("- Routine engagement\n"
+                           "- Include in standard pulse survey")
+    else:
+        st.info("👈 Fill in the employee profile and click **Predict + Explain**.")
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("Dataset",          "1,470 employees")
+        c2.metric("Attrition Rate",   "16.1%")
+        c3.metric("Model AUC",        "0.87+")
+        c4.metric("Recall",           "≥70%")
+
+# ══════════════════════════════════════════════════════════
+# TAB 2 — BATCH CSV UPLOAD
+# ══════════════════════════════════════════════════════════
+with tab2:
+    st.subheader("📂 Batch Score — Upload a CSV of Employees")
+    st.markdown(
+        "Upload a CSV with one employee per row. "
+        "The API scores all employees and returns risk tiers, "
+        "probabilities, and recommendations. Download results as CSV."
+    )
+
+    # ── Template download ─────────────────────────────────
+    st.markdown("#### Step 1 — Download the template")
+    template = pd.DataFrame([{
+        "Age": 28, "MonthlyIncome": 3500, "OverTime": "Yes",
+        "JobSatisfaction": 2, "StockOptionLevel": 0,
+        "JobLevel": 1, "TotalWorkingYears": 3,
+        "YearsAtCompany": 1, "YearsInCurrentRole": 1,
+        "YearsSinceLastPromotion": 1, "YearsWithCurrManager": 0,
+        "NumCompaniesWorked": 3, "BusinessTravel": "Travel_Frequently",
+        "MaritalStatus": "Single", "Department": "Sales",
+        "JobRole": "Sales Representative", "Gender": "Male",
+        "EnvironmentSatisfaction": 2, "RelationshipSatisfaction": 2,
+        "WorkLifeBalance": 2, "Education": 3, "JobInvolvement": 2,
+        "PerformanceRating": 3, "PercentSalaryHike": 11,
+        "TrainingTimesLastYear": 1, "DistanceFromHome": 15,
+        "DailyRate": 500, "HourlyRate": 45, "MonthlyRate": 9000,
+    },{
+        "Age": 45, "MonthlyIncome": 12000, "OverTime": "No",
+        "JobSatisfaction": 4, "StockOptionLevel": 3,
+        "JobLevel": 4, "TotalWorkingYears": 20,
+        "YearsAtCompany": 15, "YearsInCurrentRole": 7,
+        "YearsSinceLastPromotion": 1, "YearsWithCurrManager": 8,
+        "NumCompaniesWorked": 2, "BusinessTravel": "Non-Travel",
+        "MaritalStatus": "Married", "Department": "Research & Development",
+        "JobRole": "Research Director", "Gender": "Female",
+        "EnvironmentSatisfaction": 4, "RelationshipSatisfaction": 4,
+        "WorkLifeBalance": 4, "Education": 5, "JobInvolvement": 4,
+        "PerformanceRating": 3, "PercentSalaryHike": 20,
+        "TrainingTimesLastYear": 5, "DistanceFromHome": 2,
+        "DailyRate": 1200, "HourlyRate": 90, "MonthlyRate": 24000,
+    }])
+
+    st.download_button(
+        "⬇️ Download CSV Template",
+        template.to_csv(index=False),
+        "attrition_template.csv",
+        "text/csv",
+        help="Fill this template and upload it below"
+    )
+
+    # ── Upload and score ──────────────────────────────────
+    st.markdown("#### Step 2 — Upload your filled CSV")
+    uploaded = st.file_uploader(
+        "Upload employee CSV", type=["csv"],
+        help="Max 500 employees per upload"
+    )
+
+    if uploaded:
+        try:
+            df = pd.read_csv(uploaded)
+        except Exception as e:
+            st.error(f"Could not read CSV: {e}")
+            st.stop()
+
+        st.success(f"✅ Loaded {len(df)} employees")
+
+        # Validate required columns
+        required = ["Age", "MonthlyIncome", "OverTime",
+                    "JobSatisfaction", "StockOptionLevel"]
+        missing_cols = [c for c in required if c not in df.columns]
+        if missing_cols:
+            st.error(
+                f"Missing required columns: {missing_cols}\n"
+                "Download the template above to see the correct format."
+            )
+            st.stop()
+
+        if len(df) > 500:
+            st.warning("More than 500 rows — only the first 500 will be scored.")
+            df = df.head(500)
+
+        st.markdown("#### Step 3 — Score all employees")
+        st.dataframe(df.head(5), use_container_width=True)
+        st.caption(f"Showing first 5 of {len(df)} rows")
+
+        score_btn = st.button(
+            f"🚀 Score All {len(df)} Employees",
+            type="primary"
+        )
+
+        if score_btn:
+            with st.spinner(f"Scoring {len(df)} employees via API..."):
+
+                # Fill missing optional columns with defaults
+                defaults = {
+                    "JobLevel": 2, "TotalWorkingYears": 5,
+                    "YearsAtCompany": 3, "YearsInCurrentRole": 2,
+                    "YearsSinceLastPromotion": 1, "YearsWithCurrManager": 2,
+                    "NumCompaniesWorked": 2, "BusinessTravel": "Travel_Rarely",
+                    "MaritalStatus": "Single",
+                    "Department": "Research & Development",
+                    "JobRole": "Research Scientist", "Gender": "Male",
+                    "EnvironmentSatisfaction": 3, "RelationshipSatisfaction": 3,
+                    "WorkLifeBalance": 3, "Education": 3, "JobInvolvement": 3,
+                    "PerformanceRating": 3, "PercentSalaryHike": 13,
+                    "TrainingTimesLastYear": 3, "DistanceFromHome": 5,
+                    "DailyRate": 800, "HourlyRate": 65, "MonthlyRate": 14000,
+                }
+                for col, default in defaults.items():
+                    if col not in df.columns:
+                        df[col] = default
+
+                # Build employees list for batch API
+                employees = []
+                errors    = []
+                for i, row in df.iterrows():
+                    try:
+                        employees.append({
+                            "Age"                      : int(row.get("Age", 30)),
+                            "MonthlyIncome"            : float(row.get("MonthlyIncome", 5000)),
+                            "OverTime"                 : str(row.get("OverTime", "No")),
+                            "JobSatisfaction"          : int(row.get("JobSatisfaction", 3)),
+                            "StockOptionLevel"         : int(row.get("StockOptionLevel", 0)),
+                            "JobLevel"                 : int(row.get("JobLevel", 2)),
+                            "TotalWorkingYears"        : int(row.get("TotalWorkingYears", 5)),
+                            "YearsAtCompany"           : int(row.get("YearsAtCompany", 3)),
+                            "YearsInCurrentRole"       : int(row.get("YearsInCurrentRole", 2)),
+                            "YearsSinceLastPromotion"  : int(row.get("YearsSinceLastPromotion", 1)),
+                            "YearsWithCurrManager"     : int(row.get("YearsWithCurrManager", 2)),
+                            "NumCompaniesWorked"       : int(row.get("NumCompaniesWorked", 2)),
+                            "BusinessTravel"           : str(row.get("BusinessTravel","Travel_Rarely")),
+                            "MaritalStatus"            : str(row.get("MaritalStatus", "Single")),
+                            "Department"               : str(row.get("Department","Research & Development")),
+                            "JobRole"                  : str(row.get("JobRole","Research Scientist")),
+                            "Gender"                   : str(row.get("Gender", "Male")),
+                            "EnvironmentSatisfaction"  : int(row.get("EnvironmentSatisfaction", 3)),
+                            "RelationshipSatisfaction" : int(row.get("RelationshipSatisfaction", 3)),
+                            "WorkLifeBalance"          : int(row.get("WorkLifeBalance", 3)),
+                            "Education"                : int(row.get("Education", 3)),
+                            "JobInvolvement"           : int(row.get("JobInvolvement", 3)),
+                            "PerformanceRating"        : int(row.get("PerformanceRating", 3)),
+                            "PercentSalaryHike"        : int(row.get("PercentSalaryHike", 13)),
+                            "TrainingTimesLastYear"    : int(row.get("TrainingTimesLastYear", 3)),
+                            "DistanceFromHome"         : int(row.get("DistanceFromHome", 5)),
+                            "DailyRate"                : int(row.get("DailyRate", 800)),
+                            "HourlyRate"               : int(row.get("HourlyRate", 65)),
+                            "MonthlyRate"              : int(row.get("MonthlyRate", 14000)),
+                        })
+                    except Exception as e:
+                        errors.append(f"Row {i+1}: {e}")
+
+                if errors:
+                    st.warning(f"{len(errors)} rows had errors and were skipped:\n"
+                               + "\n".join(errors[:5]))
+
+                try:
+                    r = requests.post(
+                        f"{API_URL}/predict/batch",
+                        json=employees,
+                        timeout=60
+                    )
+                    if r.status_code != 200:
+                        st.error(f"Batch API error {r.status_code}: {r.text}")
+                        st.stop()
+                    results = r.json()
+                except Exception as e:
+                    st.error(f"API call failed: {e}")
+                    st.stop()
+
+            # ── Results summary ───────────────────────────
+            preds = results["predictions"]
+            df_results = df.copy()
+            df_results["attrition_probability"] = [
+                round(p["attrition_probability"]*100, 1) for p in preds]
+            df_results["risk_tier"]  = [p["risk_tier"]  for p in preds]
+            df_results["will_leave"] = [p["will_leave"]  for p in preds]
+            df_results["recommendation"] = [
+                p["recommendation"] for p in preds]
+            df_results = df_results.sort_values(
+                "attrition_probability", ascending=False
+            ).reset_index(drop=True)
+
+            # Summary metrics
+            tier_counts = results.get("tier_breakdown", {})
+            m1,m2,m3,m4,m5 = st.columns(5)
+            m1.metric("Total Scored",  results["total_employees"])
+            m2.metric("🔴 CRITICAL",   tier_counts.get("CRITICAL", 0))
+            m3.metric("🟠 HIGH",       tier_counts.get("HIGH", 0))
+            m4.metric("🟡 MEDIUM",     tier_counts.get("MEDIUM", 0))
+            m5.metric("🟢 LOW",        tier_counts.get("LOW", 0))
+
+            flagged = results["flagged_count"]
+            total   = results["total_employees"]
+            st.info(
+                f"**{flagged} of {total} employees** flagged for HR review "
+                f"({results['attrition_rate_pct']}% batch attrition rate). "
+                f"Processed in {results['processing_ms']}ms."
+            )
+
+            # ── Risk tier chart ───────────────────────────
+            fig, axes = plt.subplots(1, 2, figsize=(10, 3))
+
+            tiers  = ["LOW","MEDIUM","HIGH","CRITICAL"]
+            counts = [tier_counts.get(t, 0) for t in tiers]
+            colors = ["#10B981","#F59E0B","#EF4444","#7F1D1D"]
+            axes[0].bar(tiers, counts, color=colors, edgecolor="white")
+            axes[0].set_title("Employees by Risk Tier")
+            axes[0].set_ylabel("Count")
+            for i, (t, c) in enumerate(zip(tiers, counts)):
+                if c > 0:
+                    axes[0].text(i, c + 0.3, str(c),
+                                 ha="center", fontweight="bold")
+
+            probs_list = df_results["attrition_probability"].tolist()
+            axes[1].hist(probs_list, bins=20,
+                         color="#3B82F6", edgecolor="white")
+            axes[1].axvline(
+                results.get("attrition_rate_pct", 16.1),
+                color="#EF4444", linestyle="--", lw=1.5,
+                label="Batch avg"
+            )
+            axes[1].set_title("Attrition Probability Distribution")
+            axes[1].set_xlabel("Attrition Probability (%)")
+            axes[1].set_ylabel("Employees")
+            axes[1].legend(fontsize=8)
+
+            plt.tight_layout()
+            st.pyplot(fig, clear_figure=True)
+
+            # ── Full results table ────────────────────────
+            st.markdown("#### Full Results — Sorted by Risk (Highest First)")
+
+            def color_tier(val):
+                colors_map = {
+                    "CRITICAL": "background-color: #FEE2E2; color: #7F1D1D; font-weight: bold",
+                    "HIGH"    : "background-color: #FEF3C7; color: #78350F; font-weight: bold",
+                    "MEDIUM"  : "background-color: #FEF9C3; color: #713F12",
+                    "LOW"     : "background-color: #DCFCE7; color: #166534",
+                }
+                return colors_map.get(val, "")
+
+            display_cols = (
+                [c for c in ["Age","Department","JobRole","JobLevel",
+                              "MonthlyIncome","OverTime","MaritalStatus"]
+                 if c in df_results.columns] +
+                ["attrition_probability","risk_tier","recommendation"]
+            )
+
+            styled = (
+                df_results[display_cols]
+                .style
+                .map(color_tier, subset=["risk_tier"])
+                .format({"attrition_probability": "{:.1f}%"})
+            )
+            st.dataframe(styled, use_container_width=True, height=400)
+
+            # ── Download results ──────────────────────────
+            st.markdown("#### Download Results")
+            csv_out = df_results.to_csv(index=False)
+            st.download_button(
+                "⬇️ Download Scored Results CSV",
+                csv_out,
+                "attrition_batch_results.csv",
+                "text/csv",
+                type="primary"
+            )
+
+            # ── Top 10 highest risk ───────────────────────
+            st.markdown("#### 🚨 Top 10 Highest Risk Employees")
+            top10 = df_results.head(10)[display_cols]
+            st.dataframe(top10, use_container_width=True)
+
+    else:
+        # Template preview
+        st.info(
+            "👆 Download the template, fill it with your employee data, "
+            "then upload it here. Missing optional columns will use "
+            "sensible defaults automatically."
+        )
+        st.markdown("**Required columns:**")
+        st.code(
+            "Age, MonthlyIncome, OverTime (Yes/No), "
+            "JobSatisfaction (1-4), StockOptionLevel (0-3)"
+        )
+        st.markdown("**Optional columns** *(defaults applied if missing):*")
+        st.code(
+            "JobLevel, TotalWorkingYears, YearsAtCompany, BusinessTravel,\n"
+            "MaritalStatus, Department, JobRole, Gender,\n"
+            "EnvironmentSatisfaction, RelationshipSatisfaction, WorkLifeBalance"
+        )
