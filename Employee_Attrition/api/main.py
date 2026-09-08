@@ -308,7 +308,7 @@ def predict_batch(employees: List[EmployeeInput]):
             start = time.time()
             results, flagged = [], 0
             for emp in employees:
-                X_s  = scaler.transform(build_features(emp))
+                X_s  = scaler.transform(build_features(employees))
                 prob = float(model.predict_proba(X_s)[0][1])
                 tier = get_risk_tier(prob)
                 if prob >= THRESHOLD: flagged += 1
