@@ -12,6 +12,71 @@ st.set_page_config(
     page_icon="👥",
     layout="wide",
 )
+st.markdown("""
+<style>
+/* ---- App background: purple/teal glow mesh ---- */
+[data-testid="stAppViewContainer"] {
+    background:
+        radial-gradient(900px 500px at 20% -10%, rgba(124,92,255,0.35), transparent 55%),
+        radial-gradient(800px 500px at 100% 100%, rgba(94,234,212,0.25), transparent 55%),
+        linear-gradient(160deg, #0D1024 0%, #171B3D 60%, #1E2350 100%);
+}
+
+/* ---- Sidebar: slightly darker glass panel ---- */
+[data-testid="stSidebar"] {
+    background: rgba(13, 16, 36, 0.55);
+    backdrop-filter: blur(14px);
+    border-right: 1px solid rgba(255,255,255,0.10);
+}
+
+/* ---- Metric cards (st.metric) as frosted glass tiles ---- */
+[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 18px;
+    padding: 18px 20px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+[data-testid="stMetricLabel"] { color: #C6C9F0 !important; }
+[data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 700; }
+
+/* ---- Tabs styled as glass pills ---- */
+[data-testid="stTabs"] button[role="tab"] {
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px 10px 0 0;
+    color: #C6C9F0;
+}
+[data-testid="stTabs"] button[aria-selected="true"] {
+    background: rgba(124,92,255,0.25);
+    color: #FFFFFF;
+}
+
+/* ---- Expanders (sidebar sections) as glass panels ---- */
+[data-testid="stExpander"] {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+}
+
+/* ---- Buttons ---- */
+.stButton button {
+    background: linear-gradient(90deg, #7C5CFF, #5EEAD4);
+    color: #0D1024;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+}
+.stButton button:hover {
+    filter: brightness(1.1);
+}
+
+/* ---- General containers/dataframes ---- */
+[data-testid="stDataFrame"], .stAlert {
+    border-radius: 14px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 API_URL = "https://employee-attrition-fvgg.onrender.com"
 
