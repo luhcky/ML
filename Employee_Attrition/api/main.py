@@ -251,7 +251,7 @@ def predict_explain(employee: EmployeeInput):
         
         shap_vals = EXPLAINER.shap_values(X_df)
         sv = shap_vals[1] if isinstance(shap_vals,list) else shap_vals
-        sv_row =sv[0]
+        sv_row = -sv[0]
         
         shap_dict = {
             feat: round(float(val),6)
