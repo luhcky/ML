@@ -27,9 +27,9 @@ try:
     SHAP_AVAILABLE = True
     ev = EXPLAINER.expected_value
     if hasattr(ev,"__len__") and len(ev) > 1:
-            EXPECTED_VALUE =1 - float(ev[1]) 
+            EXPECTED_VALUE = float(ev[1]) 
     elif hasattr(ev,"__len__"):
-            EXPECTED_VALUE =1 - float (ev[0])
+            EXPECTED_VALUE = float (ev[0])
     else: EXPECTED_VALUE = float(ev)
     logger.info(f'SHAP explainer loaded.Base value={EXPECTED_VALUE:.4f}')
 except ImportError:
@@ -218,7 +218,8 @@ def predict(employee: EmployeeInput):
     start = time.time()
     try:
         X = build_features(employee)
-        prob =1 - float(model.predict_proba(X)[0][1])
+        X_s = scaler.transform(X)
+        prob = float(model.predict_proba(X_s)[0][1])
         tier = get_risk_tier(prob)
         return{
             "attrition_probability" : round(prob, 4),
@@ -245,14 +246,15 @@ def predict_explain(employee: EmployeeInput):
     start = time.time()
     try:
         X = build_features(employee)
-        X_df =pd.DataFrame(X, columns=FEATURES)
+        X_s = scaler.transform(X)
+        X_df =pd.DataFrame(X_s, columns=FEATURES)
         
-        prob = 1 - float(model.predict_proba(X)[0][1])
+        prob = float(model.predict_proba(X_s)[0][1])
         tier = get_risk_tier(prob)
         
         shap_vals = EXPLAINER.shap_values(X_df)
         sv = shap_vals[1] if isinstance(shap_vals,list) else shap_vals
-        sv_row = -sv[0]
+        sv_row = sv[0]
         
         shap_dict = {
             feat: round(float(val),6)
@@ -311,7 +313,7 @@ def predict_batch(employees: List[EmployeeInput]):
             results, flagged = [], 0
             for emp in employees:
                 X_s  = scaler.transform(build_features(emp))
-                prob = 1 - float(model.predict_proba(X_s)[0][1])
+                prob = float(model.predict_proba(X_s)[0][1])
                 tier = get_risk_tier(prob)
                 if prob >= THRESHOLD: flagged += 1
                 results.append({
