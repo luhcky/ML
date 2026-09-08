@@ -208,11 +208,6 @@ with tab1:
                            "- Include in standard pulse survey")
     else:
         st.info("👈 Fill in the employee profile and click **Predict + Explain**.")
-        c1,c2,c3,c4 = st.columns(4)
-        c1.metric("Dataset",          "1,470 employees")
-        c2.metric("Attrition Rate",   "16.1%")
-        c3.metric("Model AUC",        "0.87+")
-        c4.metric("Recall",           "≥70%")
 
 # ══════════════════════════════════════════════════════════
 # TAB 2 — BATCH CSV UPLOAD
