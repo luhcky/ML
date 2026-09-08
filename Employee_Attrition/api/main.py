@@ -218,7 +218,7 @@ def predict(employee: EmployeeInput):
     start = time.time()
     try:
         X = build_features(employee)
-        prob = float(model.predict_proba(X)[0][1])
+        prob =1 - float(model.predict_proba(X)[0][1])
         tier = get_risk_tier(prob)
         return{
             "attrition_probability" : round(prob, 4),
