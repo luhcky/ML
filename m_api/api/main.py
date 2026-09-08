@@ -20,17 +20,13 @@ MODEL_DIR = os.path.join(BASE_DIR, "models")
 pipeline  = joblib.load(f"{MODEL_DIR}/mpesa_pipeline.pkl")
 FEATURES  = joblib.load(f"{MODEL_DIR}/mpesa_feature_names.pkl")
 scaler = pipeline.named_steps['scaler']
+xgb_model = pipeline.named_steps["model"]
 
-# Extract XGBoost model from pipeline for SHAP
-try:
-    xgb_model = pipeline.named_steps["model"]
-except Exception:
-    xgb_model = pipeline.steps[-1][1]
 
 # SHAP explainer loaded once at startup
 try:
     import shap
-    EXPLAINER      = shap.TreeExplainer(xgb_model)
+    EXPLAINER = shap.TreeExplainer(xgb_model)
     SHAP_AVAILABLE = True
     ev = EXPLAINER.expected_value
     if hasattr(ev,"__len__") and len(ev) > 1:
@@ -39,7 +35,7 @@ try:
         EXPECTED_VALUE = float (ev[0])
     else:
         EXPECTED_VALUE = float(ev)
-    logger.info(f"SHAP loaded. Base value={EXPECTED_VALUE:.6f}")
+    logger.info(f"SHAP loaded. Base value={EXPECTED_VALUE:.4f}")
 except ImportError:
     SHAP_AVAILABLE = False
     EXPECTED_VALUE = None
@@ -375,12 +371,12 @@ def predict_explain(tx: MpesaTransaction):
             ),
             "amount_kes"        : tx.amount_kes,
             "county_route"      : f"{tx.sender_county} → {tx.receiver_county}",
-            "shap_base_value"   : round(EXPECTED_VALUE, 6),
+            "shap_base_value"   : round(EXPECTED_VALUE, 4),
             "shap_values"       : shap_dict,
             "shap_top_drivers"  : top_drivers,
             "shap_explanation"  : explanation,
             "shap_note"         : (
-                f"Base fraud rate: {EXPECTED_VALUE*100:.3f}%. "
+                f"Base fraud rate: {EXPECTED_VALUE*100:.1f}%. "
                 f"SHAP values show how each feature moved this transaction "
                 f"from that base to {prob*100:.2f}%."
             ),
