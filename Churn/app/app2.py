@@ -190,48 +190,52 @@ if predict_btn:
 
     # Two columns: SHAP chart + signals 
     col_shap, col_signals = st.columns([1.4, 1])
-
     with col_shap:
         st.subheader("🧠 SHAP Explanation")
         st.caption(data.get("shap_explanation", ""))
-
-        # Build SHAP bar chart from API response
         top_drivers = data.get("shap_top_drivers", [])
-
         if top_drivers:
             features = [d["feature"] for d in top_drivers]
             values   = [d["shap_value"] for d in top_drivers]
-            colors   = ["#EF4444" if v > 0 else "#3B82F6" for v in values]
-
-            fig, ax = plt.subplots(figsize=(10, 5))
-            bars = ax.barh(
-                range(len(features)),
-                values,
-                color=colors,
-                edgecolor="white",
-                height=0.6,
+ 
+            BG, AMBER, CYAN, GRID, TEXT, MUTED = (
+                "#080C1A", "#FBBF24", "#22D3EE",
+                "#0F1E3D", "#EFF6FF", "#6E90C0"
             )
-            ax.set_yticks(range(len(features)))
-            ax.set_yticklabels(features, fontsize=9)
-            ax.axvline(0, color="black", linewidth=0.8, linestyle="--")
-            ax.set_xlabel("SHAP Value (impact on churn probability)", fontsize=9)
-            ax.set_title("Top SHAP Drivers — This Customer", fontsize=11, fontweight="bold")
+            fig, ax = plt.subplots(figsize=(7.4, 4.2), dpi=200)
+            fig.patch.set_facecolor(BG)
+            ax.set_facecolor(BG)
+            y_pos  = range(len(features))
+            colors = [AMBER if v > 0 else CYAN for v in values]
+ 
+            for y, v, c in zip(y_pos, values, colors):
+                ax.plot([0, v], [y, y], color=c, linewidth=14,
+                        solid_capstyle="round", zorder=3, alpha=0.95)
+ 
+            ax.axvline(0, color=MUTED, linewidth=1,
+                   linestyle=(0,(4,3)), zorder=2)
+            ax.set_yticks(list(y_pos))
+            ax.set_yticklabels(features, fontsize=10.5, color=TEXT)
             ax.invert_yaxis()
-
-            # Add value labels on bars
-            for bar, val in zip(bars, values):
-                xpos = val + 0.002 if val >= 0 else val - 0.002
-                ax.text(xpos, bar.get_y() + bar.get_height()/2,
-                        f"{val:+.3f}",
-                        va="center", ha="left" if val >= 0 else "right",
-                        fontsize=8, color="#1F2937")
-
+            ax.set_xlabel("SHAP value → impact on churn probability",
+                          fontsize=9.5, color=MUTED, labelpad=10)
+            ax.set_title("Top SHAP Drivers", fontsize=17, color=TEXT,
+                         family="serif", weight="bold", pad=16, loc="left")
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            ax.grid(axis="x", color=GRID, linewidth=0.7, alpha=0.6, zorder=0)
+            ax.tick_params(colors=MUTED, length=0)
+            for y, v in zip(y_pos, values):
+                label_x = v + (0.018 if v >= 0 else -0.018)
+                ha = "left" if v >= 0 else "right"
+                ax.text(label_x, y, f"{v:+.3f}", va="center", ha=ha,
+                        fontsize=9, color=TEXT, weight="bold", zorder=4)
+            xmin = min(values) - 0.12
+            xmax = max(values) + 0.12
+            ax.set_xlim(xmin, xmax)
             plt.tight_layout()
             st.pyplot(fig, clear_figure=True)
-            st.caption(
-                "🔴 Red bars push towards **churn**. "
-                "🔵 Blue bars push towards **staying**."
-            )
+            st.caption("🟡 Amber = increases churn risk.  🩵 Cyan = decreases risk.")
             st.caption(data.get("shap_note", ""))
         else:
             st.info("SHAP values not available — check API logs.")
