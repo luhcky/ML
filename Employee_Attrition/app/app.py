@@ -25,8 +25,7 @@ try:
     shap_ok = h.get("shap_available", False)
     st.success(
         f"✅ API connected — "
-        f"Threshold: {h.get('threshold','?')} | "
-        f"Features: {h.get('feature_count','?')} | "
+    
         f"SHAP: {'✓ enabled' if shap_ok else '✗ install shap'}"
     )
 except Exception:
