@@ -19,6 +19,7 @@ MODEL_DIR = os.path.join(BASE_DIR, "models")
 
 pipeline  = joblib.load(f"{MODEL_DIR}/mpesa_pipeline.pkl")
 FEATURES  = joblib.load(f"{MODEL_DIR}/mpesa_feature_names.pkl")
+scaler = pipeline.named_steps['scaler']
 
 # Extract XGBoost model from pipeline for SHAP
 try:
@@ -276,8 +277,9 @@ def predict(tx: MpesaTransaction):
     """Score one transaction — fraud probability + alert level + signals."""
     start = time.time()
     try:
-        X     = build_row(tx)
-        prob  = float(pipeline.predict_proba(X)[0][1])
+        X = build_row(tx)
+        X_s = scaler.transform(X)
+        prob  = float(pipeline.predict_proba(X_s)[0][1])
         fraud = prob >=0.5
         alert = "BLOCK" if prob >= 0.70 else "REVIEW" if fraud else "CLEAR"
         return {
@@ -311,19 +313,13 @@ def predict_explain(tx: MpesaTransaction):
         )
     start = time.time()
     try:
-        X     = build_row(tx)
-        prob  = float(pipeline.predict_proba(X)[0][1])
+        X  = build_row(tx)
+        X_s = scaler.transform(X)
+        prob  = float(pipeline.predict_proba(X_s)[0][1])
         fraud = prob >= 0.5
         alert = "BLOCK" if prob >= 0.70 else "REVIEW" if fraud else "CLEAR"
 
-        # Scale through pipeline scaler before passing to SHAP
-        try:
-            scaler_step = pipeline.named_steps.get("scaler") or pipeline.steps[-2][1]
-            X_scaled    = scaler_step.transform(X)
-        except Exception:
-            X_scaled = X.values
-
-        X_df      = pd.DataFrame(X_scaled, columns=FEATURES)
+        X_df      = pd.DataFrame(X_s, columns=FEATURES)
         shap_vals = EXPLAINER.shap_values(X_df)
         sv        = shap_vals[1] if isinstance(shap_vals, list) else shap_vals
         sv_row    = sv[0]
