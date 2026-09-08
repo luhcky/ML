@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel,Field,validator
 from typing import List, Dict, Optional
 import numpy as np 
@@ -308,7 +309,7 @@ def predict_batch(employees: List[EmployeeInput]):
             start = time.time()
             results, flagged = [], 0
             for emp in employees:
-                X_s  = scaler.transform(build_features(employees))
+                X_s  = scaler.transform(build_features(emp))
                 prob = float(model.predict_proba(X_s)[0][1])
                 tier = get_risk_tier(prob)
                 if prob >= THRESHOLD: flagged += 1
