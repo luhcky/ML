@@ -294,8 +294,7 @@ def predict(tx: MpesaTransaction):
     start = time.time()
     try:
         X     = build_row(tx)
-        X_s   = scaler.transform(X)
-        prob  = float(pipeline.predict_proba(X_s)[0][1])
+        prob  = float(pipeline.predict_proba(X)[0][1])
         fraud = prob >= 0.5
         alert = "BLOCK" if prob >= 0.70 else "REVIEW" if fraud else "CLEAR"
         return {
@@ -326,12 +325,11 @@ def predict_explain(tx: MpesaTransaction):
     start = time.time()
     try:
         X     = build_row(tx)
-        X_s   = scaler.transform(X)
-        prob  = float(pipeline.predict_proba(X_s)[0][1])
+        prob  = float(pipeline.predict_proba(X)[0][1])
         fraud = prob >= 0.5
         alert = "BLOCK" if prob >= 0.70 else "REVIEW" if fraud else "CLEAR"
 
-        X_df      = pd.DataFrame(X_s, columns=FEATURES)
+        X_df      = pd.DataFrame(X, columns=FEATURES)
         shap_vals = EXPLAINER.shap_values(X_df)
         sv        = shap_vals[1] if isinstance(shap_vals, list) else shap_vals
         sv_row    = sv[0]
