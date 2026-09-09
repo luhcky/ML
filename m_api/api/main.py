@@ -36,12 +36,8 @@ try:
     else:
         raw_ev = float(ev)
     # Convert log-odds to probability if outside [0,1]
-    if raw_ev > 1 or raw_ev < 0:
-        EXPECTED_VALUE = 1 / (1 + math.exp(-raw_ev))
-        logger.warning(f"Expected value was log-odds ({raw_ev:.4f}) → converted to {EXPECTED_VALUE:.6f}")
-    else:
-        EXPECTED_VALUE = raw_ev
-    logger.info(f"SHAP loaded. Base fraud rate={EXPECTED_VALUE*100:.4f}%")
+    EXPECTED_VALUE = 1 / (1 + math.exp(-raw_ev))
+    logger.warning(f"Expected value was log-odds ({raw_ev:.4f}) → converted to {EXPECTED_VALUE:.6f}")
 except ImportError:
     SHAP_AVAILABLE = False
     EXPECTED_VALUE = 0.008
