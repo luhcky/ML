@@ -254,8 +254,8 @@ def health():
     return {
         "status"          : "healthy",
         "model"           : "RandomForestRegressor",
-        "r2"              : 0.88,
-        "mae_tha"         : 0.19,
+        "r2"              : 0.80,
+        "mae_tha"         : 0.42,
         "feature_count"   : len(FEATURES),
         "shap_available"  : SHAP_AVAILABLE,
         "shap_base_yield" : round(EXPECTED_VALUE, 4) if EXPECTED_VALUE else None,
