@@ -94,10 +94,6 @@ SEED_VARS    = ["Hybrid","Traditional","Improved"]
 
 # ── Header ────────────────────────────────────────────────
 st.title("🌽 AgriInsight — Kenya")
-st.markdown(
-    "**47 Counties · XGBOOST · R² 0.80 · MAE 0.42 t/ha · SHAP Explained**"
-)
-
 # ── API health check ──────────────────────────────────────
 try:
     h = requests.get(f"{API_URL}/health", timeout=3).json()
