@@ -13,7 +13,6 @@ st.set_page_config(
 
 API_URL = "https://fraud-detector-zgo6.onrender.com"  
 
-# ── Premium glassmorphism theme ───────────────────────────
 st.markdown("""
 <style>
 [data-testid="stAppViewContainer"] {
@@ -66,7 +65,7 @@ h1, h2, h3 { color: #FFFFFF !important; }
 
 # ── Header ─────────────────────────────────────────────────
 st.title("💳 Credit Card Fraud Detection")
-st.markdown("**XGBoost · SHAP Explained · Real-Time Scoring · Live Monitoring**")
+st.markdown("**Real-Time Scoring · Live Monitoring**")
 
 try:
     h = requests.get(f"{API_URL}/health", timeout=3).json()
@@ -75,7 +74,7 @@ try:
         f"Features: {h.get('feature_count','?')}"
     )
 except Exception:
-    st.error("⚠ API not running.")
+    st.error("⚠ API not running.Please wait for the API to start then refresh.")
     st.stop()
 
 st.divider()
@@ -142,7 +141,7 @@ with tab1:
         st.progress(min(prob, 1.0), text=f"Fraud score: {prob*100:.2f}%")
         st.divider()
 
-        # ── Premium glassmorphism SHAP chart ──────────────
+
         st.subheader("🧠 SHAP Explanation")
         st.caption(data.get("shap_explanation", ""))
 
