@@ -525,7 +525,7 @@ def chat(req: ChatRequest):
             "model_used"     : model_used,
             "sources"        : [
                 {
-                    "topic"    : meta.get("topic",""),
+                    "topic"    : (meta or {}).get("topic",""),
                     "relevance": round(1 - dist, 4),
                     "excerpt"  : doc[:200] + "..." if len(doc) > 200 else doc,
                 }
