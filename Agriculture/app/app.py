@@ -103,7 +103,7 @@ try:
         
 except Exception:
     st.error(
-        "⚠ API not running. Start it:\n"
+        "⚠ API not running. Wait for the API to start then refresh:\n"
     )
     st.stop()
 
