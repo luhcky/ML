@@ -1,3 +1,4 @@
+
 import streamlit as st
 import requests
 import pandas as pd
@@ -71,6 +72,14 @@ st.markdown("""
     box-shadow: 0 0 22px rgba(74,222,128,0.4), 0 4px 14px rgba(253,224,71,0.25);
 }
 .stButton button:hover { filter: brightness(1.1); }
+/* Forced override — Streamlit wraps the button label in an inner <p> tag,
+   which the global p/span/label rule further below was styling with a
+   light green that blended into this button's own light background.
+   !important guarantees this wins regardless of stylesheet order. */
+.stButton button,
+.stButton button p {
+    color: #0B2110 !important;
+}
 /* ---- Containers ---- */
 [data-testid="stDataFrame"], .stAlert {
     border-radius: 14px;
