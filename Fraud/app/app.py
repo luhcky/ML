@@ -193,7 +193,6 @@ with tab1:
             plt.tight_layout()
             st.pyplot(fig, clear_figure=True)
             st.caption("🟣 Purple = increases fraud risk.  🟦 Teal = decreases fraud risk.")
-            st.caption(f"SHAP space: {data.get('shap_space','?')}  ·  Base fraud rate: {data.get('shap_base_value',0)*100:.2f}%")
     else:
         st.info("👈 Set the transaction amount, time, and any PCA components, then click **Predict + Explain**.")
 
