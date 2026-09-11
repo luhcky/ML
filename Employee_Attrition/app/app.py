@@ -94,7 +94,7 @@ try:
         f"SHAP: {'✓ enabled' if shap_ok else '✗ install shap'}"
     )
 except Exception:
-    st.error("⚠ API not running.")
+    st.error("⚠ API not running.Please wait as the API starts then refresh.")
     st.stop()
 
 st.divider()
