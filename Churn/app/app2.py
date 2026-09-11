@@ -425,18 +425,6 @@ with tab1:
 
     else:
         st.info("👈 Fill in the customer profile and click **Predict + Explain**.")
-        m1,m2,m3,m4 = st.columns(4)
-        m1.metric("Dataset",        "7,043 customers")
-        m2.metric("Baseline Churn", "26.5%")
-        m3.metric("Model AUC",      "0.941")
-        m4.metric("Recall",         "78.4%")
-        st.markdown("""
-        **Key findings:**
-        - Month-to-month contracts churn at **42.7%**
-        - New customers (0–6 months) churn at **61.4%**
-        - Electronic check payment = **45.3%** churn vs credit card **15.2%**
-        - Fiber optic + no security = **2.1x** average churn rate
-        """)
 
 # ══════════════════════════════════════════════════════════
 # TAB 2 — BATCH CSV UPLOAD
