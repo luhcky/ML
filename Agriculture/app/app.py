@@ -13,63 +13,74 @@ st.set_page_config(
 )
 st.markdown("""
 <style>
-/* ---- App background: green/amber earth mesh ---- */
-[data-testid="stAppViewContainer"] {
+/* ---- App background: Fresh Meadow ---- */
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+.stApp {
     background:
-        radial-gradient(900px 500px at 15% -10%, rgba(22,163,74,0.28), transparent 55%),
-        radial-gradient(800px 500px at 100% 100%, rgba(217,119,6,0.22), transparent 55%),
-        linear-gradient(160deg, #080E0A 0%, #0D1A0F 60%, #101F12 100%);
+        radial-gradient(480px 480px at 15% -10%, rgba(74,222,128,0.45), transparent 60%),
+        radial-gradient(400px 400px at 100% 100%, rgba(253,224,71,0.35), transparent 60%),
+        linear-gradient(150deg, #0F2E1A 0%, #163D22 45%, #1F4D2B 100%) !important;
 }
 /* ---- Sidebar ---- */
 [data-testid="stSidebar"] {
-    background: rgba(8, 14, 10, 0.60);
-    backdrop-filter: blur(14px);
-    border-right: 1px solid rgba(22,163,74,0.20);
+    background: rgba(8, 20, 12, 0.55) !important;
+    backdrop-filter: blur(18px);
+    border-right: 1px solid rgba(255,255,255,0.1);
+}
+[data-testid="stSidebar"] h3 {
+    color: #4ADE80 !important;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 12.5px !important;
 }
 /* ---- Metric cards ---- */
 [data-testid="stMetric"] {
-    background: rgba(22,163,74,0.10);
-    border: 1px solid rgba(22,163,74,0.28);
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
     border-radius: 18px;
     padding: 18px 20px;
     backdrop-filter: blur(14px);
-    box-shadow: 0 8px 32px rgba(22,163,74,0.15);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.28);
 }
-[data-testid="stMetricLabel"] { color: #86EFAC !important; }
-[data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 700; }
+[data-testid="stMetricLabel"] { color: #B7D9C2 !important; }
+[data-testid="stMetricValue"] { color: #F2FBF4 !important; font-weight: 700; }
 /* ---- Tabs ---- */
 [data-testid="stTabs"] button[role="tab"] {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.06);
     border-radius: 10px 10px 0 0;
-    color: #86EFAC;
+    color: #B7D9C2;
 }
 [data-testid="stTabs"] button[aria-selected="true"] {
-    background: rgba(22,163,74,0.25);
-    color: #FFFFFF;
+    background: rgba(74,222,128,0.22);
+    color: #F2FBF4;
 }
 /* ---- Expanders ---- */
 [data-testid="stExpander"] {
-    background: rgba(22,163,74,0.07);
-    border: 1px solid rgba(22,163,74,0.18);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
     border-radius: 12px;
 }
 /* ---- Buttons ---- */
 .stButton button {
-    background: linear-gradient(90deg, #16A34A, #D97706);
-    color: #FFFFFF;
+    background: linear-gradient(90deg, #4ADE80, #FDE047);
+    color: #0B2110;
     font-weight: 700;
     border: none;
     border-radius: 10px;
+    box-shadow: 0 0 22px rgba(74,222,128,0.4), 0 4px 14px rgba(253,224,71,0.25);
 }
-.stButton button:hover { filter: brightness(1.15); }
+.stButton button:hover { filter: brightness(1.1); }
 /* ---- Containers ---- */
 [data-testid="stDataFrame"], .stAlert {
     border-radius: 14px;
 }
 /* ---- Progress bar ---- */
 [data-testid="stProgressBar"] > div > div {
-    background: linear-gradient(90deg, #16A34A, #D97706);
+    background: linear-gradient(90deg, #4ADE80, #FDE047);
 }
+h1, h2, h3 { color: #F2FBF4 !important; }
+p, span, label { color: #D7ECDC; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -212,8 +223,8 @@ with tab1:
                 values   = [d["shap_value"] for d in top_drivers]
  
                 BG, LIME, ROSE, GRID, TEXT, MUTED = (
-                    "#080E0A", "#86EFAC", "#FB7185",
-                    "#122016", "#F0FDF4", "#6B9E78"
+                    "#122A19", "#4ADE80", "#FB7185",
+                    "#1E4029", "#F2FBF4", "#9FC7AC"
                     )
                 fig, ax = plt.subplots(figsize=(7.4, 4.2), dpi=200)
                 fig.patch.set_facecolor(BG)
@@ -408,15 +419,15 @@ with tab2:
                 f"Processed in {results['processing_ms']}ms."
             )
 
-            # ── Charts 
-            BG      = "#080E0A"
-            PANEL   = "#0D1A0F"
-            LIME    = "#86EFAC"
-            AMBER   = "#D97706"
+            # ── Charts — Fresh Meadow palette
+            BG      = "#0F2E1A"
+            PANEL   = "#173B21"
+            LIME    = "#4ADE80"
+            AMBER   = "#FDE047"
             ROSE    = "#FB7185"
-            GRID    = "#16241A"
-            TEXT    = "#F0FDF4"
-            MUTED   = "#6B9E78"
+            GRID    = "#22492D"
+            TEXT    = "#F2FBF4"
+            MUTED   = "#9FC7AC"
             NAT_AVG = 1.84
 
             fig, axes = plt.subplots(1, 2, figsize=(11, 3.6), dpi=170)
@@ -523,9 +534,3 @@ with tab2:
                 df_results.head(10)[display_cols],
                 use_container_width=True
             )
-
-    else:
-        st.info(
-            "👆 Download the template, fill it with your farm data, "
-            "then upload it here."
-        )
