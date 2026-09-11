@@ -99,11 +99,8 @@ try:
     shap_ok = h.get("shap_available", False)
     base    = h.get("shap_base_yield")
     st.success(
-        f"✅ API connected — R²: {h.get('r2','?')} | "
-        f"MAE: {h.get('mae_tha','?')} t/ha | "
-        f"SHAP: {'✓ enabled' if shap_ok else '✗ install shap'}"
-        + (f" | Base yield: {base} t/ha" if base else "")
-    )
+        f"✅ API connected ")
+        
 except Exception:
     st.error(
         "⚠ API not running. Start it:\n"
@@ -274,11 +271,10 @@ with tab1:
             )
     else:
         st.info("👈 Fill in the farm profile and click **Predict + Explain**.")
-        c1,c2,c3,c4 = st.columns(4)
+        c1,c2,c3 = st.columns(3)
         c1.metric("Counties",     "47 Kenya")
         c2.metric("Model R²",     "0.80")
-        c3.metric("MAE",          "0.19 t/ha")
-        c4.metric("National Avg", "1.84 t/ha")
+        c3.metric("National Avg", "1.84 t/ha")
 
 # ══════════════════════════════════════════════════════════
 # TAB 2 — BATCH CSV UPLOAD
@@ -412,7 +408,7 @@ with tab2:
                 f"Processed in {results['processing_ms']}ms."
             )
 
-            # ── Charts — restyled to match the green/amber earth theme ──
+            # ── Charts 
             BG      = "#080E0A"
             PANEL   = "#0D1A0F"
             LIME    = "#86EFAC"
