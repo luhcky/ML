@@ -124,6 +124,7 @@ with tab1:
 
         prob  = data["fraud_probability"]
         alert = data["alert_level"]
+        risk = alert
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Fraud Probability", f"{prob*100:.2f}%")
