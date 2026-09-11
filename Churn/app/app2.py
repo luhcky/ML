@@ -99,11 +99,10 @@ try:
     shap_ok = h.get("shap_available", False)
     st.success(
         f"✅ API connected | "
-        f"Threshold: {h.get('threshold', h.get('threshold_used','0.5'))} | "
         f"SHAP: {'✓ enabled' if shap_ok else '✗ not available'}"
     )
 except Exception:
-    st.error("⚠ API not running.")
+    st.error("⚠ API not running.Wait as the API starts then refresh.")
     st.stop()
 
 st.divider()
