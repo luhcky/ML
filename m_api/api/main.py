@@ -8,6 +8,7 @@ import pandas as pd
 import joblib
 import os
 import time
+import math
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -22,10 +23,21 @@ FEATURES  = joblib.load(f"{MODEL_DIR}/mpesa_feature_names.pkl")
 scaler    = pipeline.named_steps['scaler']
 xgb_model = pipeline.named_steps["model"]
 
+# ── DECISION THRESHOLD ─────────────────────────────────────
+# Lowered from the 0.5 default — in fraud detection the cost of a missed
+# fraud case is typically far higher than the cost of a false-positive
+# review, which justifies accepting more false alarms to catch more fraud.
+# This value should ideally come from reading your precision-recall curve
+# against a real recall target, not just asserted — treat 0.2 as a starting
+# point to validate against your validation-set metrics, not a final answer.
+THRESHOLD = 0.2
+BLOCK_THRESHOLD = 0.30  # unchanged from before — REVIEW band is now wider
+                        # (0.2-0.70) as a direct consequence of lowering
+                        # THRESHOLD; revisit if this floods manual review.
+
 # ── SHAP ──────────────────────────────────────────────────
 try:
     import shap
-    import math
     EXPLAINER = shap.TreeExplainer(xgb_model)
     SHAP_AVAILABLE = True
     ev = EXPLAINER.expected_value
@@ -35,26 +47,34 @@ try:
         raw_ev = float(ev[0])
     else:
         raw_ev = float(ev)
-    # Convert log-odds to probability if outside [0,1]
-    EXPECTED_VALUE = 1 / (1 + math.exp(-raw_ev))
-    logger.warning(f"Expected value was log-odds ({raw_ev:.4f}) → converted to {EXPECTED_VALUE:.6f}")
+    if raw_ev > 1 or raw_ev < 0:
+        EXPECTED_VALUE = 1 / (1 + math.exp(-raw_ev))
+        SHAP_SPACE = "log_odds"
+        logger.warning(f"Expected value was log-odds ({raw_ev:.4f}) -> converted to {EXPECTED_VALUE:.6f}")
+    else:
+        EXPECTED_VALUE = raw_ev
+        SHAP_SPACE = "probability"
+    logger.info(f"SHAP loaded. Base fraud rate={EXPECTED_VALUE*100:.4f}%")
 except ImportError:
     SHAP_AVAILABLE = False
     EXPECTED_VALUE = 0.008
-    logger.warning("shap not installed — pip install shap")
+    SHAP_SPACE = None
+    logger.warning("shap not installed - pip install shap")
 
 # ── RAG CHATBOT SETUP ─────────────────────────────────────
+# NOTE: no sentence-transformers / torch here - that combination OOM'd on
+# Render's free tier. ChromaDB's built-in ONNX embedding function does the
+# same job (same underlying MiniLM model) at a fraction of the memory.
+# IMPORTANT: the knowledge base collection must have been built using the
+# same default embedding function - see scripts/build_knowledge_base.py.
 try:
     import chromadb
-    from sentence_transformers import SentenceTransformer
-    RAG_EMBEDDER   = SentenceTransformer("all-MiniLM-L6-v2")
     RAG_CLIENT     = chromadb.PersistentClient(path=".chromadb")
     RAG_COLLECTION = RAG_CLIENT.get_collection("mpesa_fraud_kb")
     RAG_AVAILABLE  = True
     logger.info("RAG knowledge base loaded successfully")
 except Exception as e:
     RAG_AVAILABLE  = False
-    RAG_EMBEDDER   = None
     RAG_COLLECTION = None
     logger.warning(f"RAG not available: {e}. Run scripts/build_knowledge_base.py")
 
@@ -64,7 +84,7 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-logger.info(f"M-PESA pipeline loaded. Features={len(FEATURES)}")
+logger.info(f"M-PESA pipeline loaded. Features={len(FEATURES)}. Threshold={THRESHOLD}")
 
 KENYA_COUNTIES = [
     "Nairobi","Mombasa","Kisumu","Nakuru","Uasin Gishu","Meru","Kilifi",
@@ -84,15 +104,15 @@ app = FastAPI(
     description=(
         "XGBoost M-PESA fraud model with SHAP explainability + RAG chatbot.\n\n"
         "**Endpoints:**\n"
-        "- `POST /predict` — fraud score + alert level + signals\n"
-        "- `POST /predict/explain` — full SHAP values per feature\n"
-        "- `POST /predict/batch` — score up to 1000 transactions\n"
-        "- `POST /chat` — RAG chatbot on fraud knowledge base\n"
-        "- `GET /features` — exact feature names from training\n"
-        "- `GET /health` — model status\n"
-        "- `GET /counties` — all valid county names"
+        "- `POST /predict` - fraud score + alert level + signals\n"
+        "- `POST /predict/explain` - full SHAP values per feature\n"
+        "- `POST /predict/batch` - score up to 1000 transactions\n"
+        "- `POST /chat` - RAG chatbot on fraud knowledge base\n"
+        "- `GET /features` - exact feature names from training\n"
+        "- `GET /health` - model status\n"
+        "- `GET /counties` - all valid county names"
     ),
-    version="3.0.0",
+    version="3.1.0",
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
@@ -183,6 +203,20 @@ def build_row(tx: MpesaTransaction) -> pd.DataFrame:
 
     return pd.DataFrame([row])[FEATURES]
 
+def alert_level(prob: float) -> str:
+    if prob >= BLOCK_THRESHOLD:
+        return "BLOCK"
+    elif prob >= THRESHOLD:
+        return "REVIEW"
+    return "CLEAR"
+
+def action_for(alert: str) -> str:
+    return {
+        "BLOCK" : "Block transaction and investigate immediately",
+        "REVIEW": "Hold for manual review",
+        "CLEAR" : "Approve transaction",
+    }[alert]
+
 def get_fraud_signals(tx: MpesaTransaction) -> List[str]:
     signals = []
     is_night = tx.hour >= 22 or tx.hour <= 5
@@ -190,23 +224,23 @@ def get_fraud_signals(tx: MpesaTransaction) -> List[str]:
     asal = ["Turkana","Mandera","Wajir","Marsabit","Isiolo",
             "Tana River","Garissa","Lamu","West Pokot","Samburu"]
     if tx.sender_account_age <= 30:
-        signals.append(f"New account ({tx.sender_account_age} days old) — SIMSwap risk")
+        signals.append(f"New account ({tx.sender_account_age} days old) - SIMSwap risk")
     if is_night:
-        signals.append("Off-hours transaction — elevated fraud rate at night")
+        signals.append("Off-hours transaction - elevated fraud rate at night")
     if is_cross:
-        signals.append(f"Cross-county: {tx.sender_county} → {tx.receiver_county}")
+        signals.append(f"Cross-county: {tx.sender_county} -> {tx.receiver_county}")
     if tx.receiver_county in asal:
-        signals.append("ASAL region destination — known high-risk zone")
+        signals.append("ASAL region destination - known high-risk zone")
     if tx.sender_tx > 5:
-        signals.append(f"High transaction velocity — {tx.sender_tx} txns from this sender")
+        signals.append(f"High transaction velocity - {tx.sender_tx} txns from this sender")
     if tx.amount_kes > 50000:
         signals.append(f"Large amount: KES {tx.amount_kes:,.0f}")
     if tx.amount_kes % 1000 == 0:
-        signals.append(f"Round number amount (KES {tx.amount_kes:,.0f}) — fraud pattern")
+        signals.append(f"Round number amount (KES {tx.amount_kes:,.0f}) - fraud pattern")
     if tx.channel == "AGENT":
-        signals.append("AGENT channel — highest fraud rate channel")
+        signals.append("AGENT channel - highest fraud rate channel")
     if tx.sender_account_age <= 30 and tx.amount_kes > 20000:
-        signals.append("New account + large amount — highest risk combination")
+        signals.append("New account + large amount - highest risk combination")
     return signals or ["No specific fraud signals detected"]
 
 def rag_fallback_answer(question: str, context: str) -> str:
@@ -214,28 +248,29 @@ def rag_fallback_answer(question: str, context: str) -> str:
     q = question.lower()
     if "simswap" in q or "sim swap" in q:
         return ("SIMSwap accounts for 40% of M-PESA fraud. Attackers clone victim SIM cards "
-                "and immediately transfer large amounts. Key signals: account age ≤ 7 days, "
+                "and immediately transfer large amounts. Key signals: account age <= 7 days, "
                 "amount > KES 20,000, off-hours. New SIM + large amount = 65% fraud rate (81x national).")
     elif "county" in q or "region" in q or "asal" in q:
         return ("Highest-risk counties are ASAL region: Turkana, Mandera, Wajir, Garissa, Marsabit. "
                 "The model learns county risk from historical fraud patterns via one-hot encoding. "
-                "Cross-county transactions (sender ≠ receiver) also elevate risk.")
+                "Cross-county transactions (sender != receiver) also elevate risk.")
     elif "time" in q or "night" in q or "hour" in q or "peak" in q:
-        return ("Fraud peaks between 22:00 and 05:00 — 3.5x higher rate than daytime (2.4% vs 0.7%). "
+        return ("Fraud peaks between 22:00 and 05:00 - 3.5x higher rate than daytime (2.4% vs 0.7%). "
                 "Hour 02:00-04:00 is the highest concentration period. "
                 "is_night flag: hour >= 22 OR hour <= 5.")
     elif "shap" in q or "explain" in q:
-        return ("SHAP values show each feature's contribution to the fraud probability above/below base rate (0.8%). "
+        return ("SHAP values show each feature's contribution to the fraud probability above/below base rate. "
                 "Positive SHAP = increases fraud probability. Negative = decreases. "
                 "Top drivers: new_sim, is_night, high_amount_new_sim, is_cross_county, channel_AGENT.")
     elif "block" in q or "alert" in q or "review" in q:
-        return ("BLOCK: probability ≥ 0.70 → block and investigate immediately. "
-                "REVIEW: probability ≥ 0.5 and < 0.70 → hold 30 mins, send OTP. "
-                "CLEAR: probability < 0.5 → approve and log.")
+        return (f"BLOCK: probability >= {BLOCK_THRESHOLD:.2f} -> block and investigate immediately. "
+                f"REVIEW: probability >= {THRESHOLD:.2f} and < {BLOCK_THRESHOLD:.2f} -> hold for manual review. "
+                f"CLEAR: probability < {THRESHOLD:.2f} -> approve and log.")
     elif "model" in q or "auc" in q or "performance" in q:
         return ("XGBoost with scale_pos_weight=124 (handles 124:1 class imbalance). "
                 "AUC-ROC: 0.960. Recall at 1% FPR: 87%. "
-                "Optimal threshold: 0.5. CV AUC: 0.957 ± 0.008. No SMOTE — outperformed it by 3.2 AUC points.")
+                f"Decision threshold: {THRESHOLD:.2f} (lowered from 0.5 to prioritize recall). "
+                "CV AUC: 0.957 +/- 0.008. No SMOTE - outperformed it by 3.2 AUC points.")
     elif "agent" in q or "collusion" in q:
         return ("Agent Collusion = 35% of fraud. AGENT channel has highest fraud rate at 1.76%. "
                 "Channel rates: AGENT 1.76%, PAYBILL 0.9%, TILL 0.7%, PESA 0.6%. "
@@ -248,9 +283,10 @@ def rag_fallback_answer(question: str, context: str) -> str:
 def root():
     return {
         "api"          : "M-PESA Fraud Detection API",
-        "version"      : "3.0.0",
+        "version"      : "3.1.0",
         "counties"     : len(KENYA_COUNTIES),
-        "threshold"    : 0.2,
+        "threshold"    : THRESHOLD,
+        "block_threshold": BLOCK_THRESHOLD,
         "shap"         : SHAP_AVAILABLE,
         "rag_chatbot"  : RAG_AVAILABLE,
         "docs"         : "/docs",
@@ -261,8 +297,9 @@ def health():
     return {
         "status"          : "healthy",
         "model"           : "XGBoost Pipeline",
-        "auc"             : 0.960,
-        "threshold"       : 0.2,
+        "auc"             : 0.920,
+        "threshold"       : THRESHOLD,
+        "block_threshold" : BLOCK_THRESHOLD,
         "feature_count"   : len(FEATURES),
         "shap_available"  : SHAP_AVAILABLE,
         "shap_base_value" : round(EXPECTED_VALUE, 6) if EXPECTED_VALUE else None,
@@ -291,22 +328,18 @@ def predict(tx: MpesaTransaction):
     try:
         X     = build_row(tx)
         prob  = float(pipeline.predict_proba(X)[0][1])
-        fraud = prob >= 0.2
-        alert = "BLOCK" if prob >= 0.30 else "REVIEW" if fraud else "CLEAR"
+        fraud = prob >= THRESHOLD
+        alert = alert_level(prob)
         return {
             "fraud_probability": round(prob, 4),
             "fraud_pct"        : round(prob * 100, 2),
             "is_fraud"         : fraud,
-            "threshold_used"   : 0.2,
+            "threshold_used"   : THRESHOLD,
             "alert_level"      : alert,
             "fraud_signals"    : get_fraud_signals(tx),
-            "action"           : (
-                "Block transaction and investigate immediately" if alert == "BLOCK" else
-                "Hold for manual review"                        if alert == "REVIEW" else
-                "Approve transaction"
-            ),
+            "action"           : action_for(alert),
             "amount_kes"       : tx.amount_kes,
-            "county_route"     : f"{tx.sender_county} → {tx.receiver_county}",
+            "county_route"     : f"{tx.sender_county} -> {tx.receiver_county}",
             "processing_ms"    : round((time.time() - start) * 1000, 2),
         }
     except Exception as e:
@@ -321,14 +354,19 @@ def predict_explain(tx: MpesaTransaction):
     start = time.time()
     try:
         X     = build_row(tx)
-        prob  = float(pipeline.predict_proba(X)[0][1])
-        fraud = prob >= 0.2
-        alert = "BLOCK" if prob >= 0.30 else "REVIEW" if fraud else "CLEAR"
+        X_s   = scaler.transform(X)
+        prob  = float(xgb_model.predict_proba(X_s)[0][1])
+        fraud = prob >= THRESHOLD
+        alert = alert_level(prob)
 
-        X_df      = pd.DataFrame(X, columns=FEATURES)
+        X_df      = pd.DataFrame(X_s, columns=FEATURES)
         shap_vals = EXPLAINER.shap_values(X_df)
         sv        = shap_vals[1] if isinstance(shap_vals, list) else shap_vals
         sv_row    = sv[0]
+
+        if SHAP_SPACE == "log_odds":
+            scale = prob * (1 - prob)
+            sv_row = sv_row * scale
 
         shap_dict = {
             feat: round(float(val), 6)
@@ -356,18 +394,15 @@ def predict_explain(tx: MpesaTransaction):
             "fraud_probability": round(prob, 4),
             "fraud_pct"        : round(prob * 100, 2),
             "is_fraud"         : fraud,
-            "threshold_used"   : 0.2,
+            "threshold_used"   : THRESHOLD,
             "alert_level"      : alert,
             "fraud_signals"    : get_fraud_signals(tx),
-            "action"           : (
-                "Block transaction and investigate immediately" if alert == "BLOCK" else
-                "Hold for manual review"                        if alert == "REVIEW" else
-                "Approve transaction"
-            ),
+            "action"           : action_for(alert),
             "amount_kes"       : tx.amount_kes,
-            "county_route"     : f"{tx.sender_county} → {tx.receiver_county}",
+            "county_route"     : f"{tx.sender_county} -> {tx.receiver_county}",
             "shap_base_value"  : round(EXPECTED_VALUE, 6),
             "shap_base_pct"    : round(EXPECTED_VALUE * 100, 4),
+            "shap_space"       : SHAP_SPACE,
             "shap_values"      : shap_dict,
             "shap_top_drivers" : top_drivers,
             "shap_explanation" : explanation,
@@ -390,17 +425,17 @@ def predict_batch(transactions: List[MpesaTransaction]):
     start = time.time()
     results, fraud_count = [], 0
     for tx in transactions:
-        X_s   = scaler.transform(build_row(tx))
-        prob  = float(pipeline.predict_proba(X_s)[0][1])
-        is_f  = prob >= 0.2
-        alert = "BLOCK" if prob >= 0.30 else "REVIEW" if is_f else "CLEAR"
+        X     = build_row(tx)
+        prob  = float(pipeline.predict_proba(X)[0][1])
+        is_f  = prob >= THRESHOLD
+        alert = alert_level(prob)
         if is_f: fraud_count += 1
         results.append({
             "fraud_probability": round(prob, 4),
             "is_fraud"         : is_f,
             "alert_level"      : alert,
             "amount_kes"       : tx.amount_kes,
-            "county_route"     : f"{tx.sender_county} → {tx.receiver_county}",
+            "county_route"     : f"{tx.sender_county} -> {tx.receiver_county}",
         })
     return {
         "total_transactions": len(results),
@@ -419,20 +454,15 @@ def predict_batch(transactions: List[MpesaTransaction]):
 @app.post("/chat", tags=["RAG Chatbot"])
 def chat(req: ChatRequest):
     """
-    RAG chatbot — answers questions about M-PESA fraud patterns,
+    RAG chatbot - answers questions about M-PESA fraud patterns,
     model performance, county risk, and SHAP using your verified findings.
 
     Requires:
-    1. Run: python scripts/build_knowledge_base.py (once)
+    1. Run: python scripts/build_knowledge_base.py (once) - must use
+       ChromaDB's default embedding function, not sentence-transformers,
+       or retrieval quality will silently degrade (embedding-space mismatch).
     2. Set ANTHROPIC_API_KEY env var for Claude answers (optional)
        Falls back to keyword matching if no API key.
-
-    Examples:
-    - "What is SIMSwap fraud?"
-    - "Which counties have the highest fraud rate?"
-    - "How does the model handle class imbalance?"
-    - "Explain SHAP values"
-    - "What triggers a BLOCK alert?"
     """
     if not RAG_AVAILABLE:
         raise HTTPException(
@@ -444,12 +474,8 @@ def chat(req: ChatRequest):
         )
     start = time.time()
     try:
-        # Step 1 — embed question
-        q_embedding = RAG_EMBEDDER.encode([req.question]).tolist()
-
-        # Step 2 — retrieve relevant chunks
         results = RAG_COLLECTION.query(
-            query_embeddings=q_embedding,
+            query_texts=[req.question],
             n_results=req.n_results,
             include=["documents","metadatas","distances"]
         )
@@ -458,7 +484,6 @@ def chat(req: ChatRequest):
         distances       = results["distances"][0]
         context = "\n\n---\n\n".join(retrieved_docs)
 
-        # Step 3 — generate answer via Claude or fallback
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if api_key and ANTHROPIC_AVAILABLE:
             try:
@@ -470,7 +495,7 @@ def chat(req: ChatRequest):
                         "You are a fraud analytics expert specialising in "
                         "M-PESA mobile money fraud detection in Kenya. "
                         "Answer questions using ONLY the provided context. "
-                        "Be specific — include exact numbers and metrics when available. "
+                        "Be specific - include exact numbers and metrics when available. "
                         "If context is insufficient, say so honestly. "
                         "Keep answers to 3-5 sentences unless more detail is needed."
                     ),
