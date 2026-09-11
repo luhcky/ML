@@ -20,10 +20,17 @@ if collection.count() == 0:
         "Social engineering: fake Safaricom call asking for PIN. Signals: reversal shortly after, small test then large amount.",
         "Till/Paybill fraud: fake supplier asks to pay new till like 90k. Signals: new beneficiary, round amount, first time.",
         "High risk rule: Account age <7 days and amount >50000 KES should be flagged, especially ASAL counties at night 10pm-5am.",
-        "Velocity: >10 txns in 24h or 3 in 10min = bot/mule account. Require KYC.",
+        "Velocity: >50 txns in 24h or 5 in 10min = bot/mule account. Require KYC.",
     ]
     collection.add(
         documents=documents,
+        metadatas=[
+            {"topic":"sim_swap"},
+               {"topic":"account_take_over"},
+               {"topic":"social_engineering"},
+               {"topic":"till_fraud"},
+               {"topic":"high_risk_value"},
+               {"topic":"velocity"},
         ids=[f"doc_{i}" for i in range(len(documents))]
     )
     print(f"✅ Built {collection.count()} docs in {DB_PATH}/{COLLECTION_NAME}")
