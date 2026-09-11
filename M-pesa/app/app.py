@@ -96,7 +96,7 @@ p, span, label { color: #C6BEE0; }
 
 # ── Header ─────────────────────────────────────────────────
 st.title("📱 M-PESA Fraud Detection")
-st.markdown("**XGBoost · SHAP Explained · RAG Fraud Assistant · Kenya Counties**")
+st.markdown("**SHAP Explained · RAG Fraud Assistant · Kenya Counties**")
 
 try:
     h = requests.get(f"{API_URL}/health", timeout=3).json()
@@ -106,7 +106,7 @@ try:
         f"RAG: {'✓' if h.get('rag_available') else '✗ not built'}"
     )
 except Exception:
-    st.error("⚠ API not running.")
+    st.error("⚠ API not running.Please wait as the API starts then refresh.")
     st.stop()
 
 st.divider()
