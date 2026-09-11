@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -413,30 +412,77 @@ with tab2:
                 f"Processed in {results['processing_ms']}ms."
             )
 
-            # Charts
-            fig, axes = plt.subplots(1, 2, figsize=(10, 3))
+            # ── Charts — restyled to match the green/amber earth theme ──
+            BG      = "#080E0A"
+            PANEL   = "#0D1A0F"
+            LIME    = "#86EFAC"
+            AMBER   = "#D97706"
+            ROSE    = "#FB7185"
+            GRID    = "#16241A"
+            TEXT    = "#F0FDF4"
+            MUTED   = "#6B9E78"
+            NAT_AVG = 1.84
 
-            # Yield by crop
-            crop_avg = df_results.groupby("crop")["yield_tha"].mean().sort_values()
-            axes[0].barh(crop_avg.index, crop_avg.values,
-                         color="#10B981", edgecolor="white")
-            axes[0].axvline(1.84, color="#EF4444", linestyle="--",
-                            lw=1.5, label="National avg")
-            axes[0].set_title("Average Yield by Crop")
-            axes[0].set_xlabel("Yield (t/ha)")
-            axes[0].legend(fontsize=8)
+            fig, axes = plt.subplots(1, 2, figsize=(11, 3.6), dpi=170)
+            fig.patch.set_facecolor(BG)
 
-            # Yield distribution
-            axes[1].hist(df_results["yield_tha"].tolist(), bins=15,
-                         color="#3B82F6", edgecolor="white")
-            axes[1].axvline(1.84, color="#EF4444", linestyle="--",
-                            lw=1.5, label="National avg (1.84)")
-            axes[1].set_title("Yield Distribution")
-            axes[1].set_xlabel("Yield (t/ha)")
-            axes[1].set_ylabel("Farms")
-            axes[1].legend(fontsize=8)
+            # --- Panel 1: average yield by crop (pill bars) ---
+            crop_avg     = df_results.groupby("crop")["yield_tha"].mean().sort_values()
+            crops_sorted = crop_avg.index.tolist()
+            vals_sorted  = crop_avg.values.tolist()
+            bar_colors   = [LIME if v >= NAT_AVG else ROSE for v in vals_sorted]
+            y_p = range(len(crops_sorted))
+
+            ax0 = axes[0]
+            ax0.set_facecolor(PANEL)
+            for y, v, c in zip(y_p, vals_sorted, bar_colors):
+                ax0.plot([0, v], [y, y], color=c, linewidth=16,
+                         solid_capstyle="round", zorder=3, alpha=0.95)
+                ax0.text(v + max(vals_sorted) * 0.02, y, f"{v:.2f}",
+                         va="center", fontsize=9, color=TEXT, weight="bold")
+            ax0.axvline(NAT_AVG, color=AMBER, linewidth=1.3,
+                        linestyle=(0, (4, 3)), zorder=2,
+                        label=f"National avg {NAT_AVG} t/ha")
+            ax0.set_yticks(list(y_p))
+            ax0.set_yticklabels(crops_sorted, fontsize=10, color=TEXT)
+            ax0.set_title("Average Yield by Crop", fontsize=13, color=TEXT,
+                          family="serif", weight="bold", pad=12, loc="left")
+            ax0.set_xlabel("Yield (t/ha)", fontsize=9, color=MUTED, labelpad=8)
+            for spine in ax0.spines.values():
+                spine.set_visible(False)
+            ax0.tick_params(colors=MUTED, length=0)
+            ax0.grid(axis="x", color=GRID, linewidth=0.7, alpha=0.7, zorder=0)
+            ax0.set_xlim(0, max(vals_sorted) * 1.22)
+            ax0.legend(fontsize=8, labelcolor=TEXT, facecolor=PANEL,
+                       edgecolor=GRID, loc="lower right")
+
+            # --- Panel 2: yield distribution ---
+            ax1 = axes[1]
+            ax1.set_facecolor(PANEL)
+            counts, bin_edges, patches = ax1.hist(
+                df_results["yield_tha"].tolist(), bins=15,
+                color=LIME, edgecolor=BG, linewidth=0.6, alpha=0.9, zorder=3,
+            )
+            for patch, edge_left in zip(patches, bin_edges[:-1]):
+                if edge_left < NAT_AVG:
+                    patch.set_facecolor(ROSE)
+            ax1.axvline(NAT_AVG, color=AMBER, linewidth=1.5,
+                        linestyle=(0, (4, 3)), zorder=4,
+                        label=f"National avg {NAT_AVG} t/ha")
+            ax1.set_title("Yield Distribution", fontsize=13, color=TEXT,
+                          family="serif", weight="bold", pad=12, loc="left")
+            ax1.set_xlabel("Yield (t/ha)", fontsize=9, color=MUTED, labelpad=8)
+            ax1.set_ylabel("Farms", fontsize=9, color=MUTED)
+            ax1.tick_params(colors=MUTED, length=0)
+            for spine in ax1.spines.values():
+                spine.set_visible(False)
+            ax1.grid(axis="y", color=GRID, linewidth=0.7, alpha=0.7, zorder=0)
+            ax1.legend(fontsize=8, labelcolor=TEXT, facecolor=PANEL,
+                       edgecolor=GRID, loc="upper right")
+
             plt.tight_layout()
             st.pyplot(fig, clear_figure=True)
+            st.caption("🟢 Lime = at or above national average.  🌸 Rose = below national average.  Amber dashed line = national average (1.84 t/ha).")
 
             # Results table
             st.markdown("#### Full Results — Sorted by Yield (Highest First)")
@@ -487,4 +533,3 @@ with tab2:
             "👆 Download the template, fill it with your farm data, "
             "then upload it here."
         )
-       
