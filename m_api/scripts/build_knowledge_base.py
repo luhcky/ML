@@ -1,34 +1,31 @@
 import os
 import chromadb
 
-# 1. Create client with persistent path (Render needs ./chroma_db)
-os.makedirs("./chroma_db", exist_ok=True)
-client = chromadb.PersistentClient(path="./chroma_db")
+# Must match main.py line 72-73 exactly
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, ".chromadb")
+COLLECTION_NAME = "mpesa_fraud_kb"
 
-# 2. Delete old collection if exists (to avoid embedding mismatch)
-try:
-    client.delete_collection("fraud_kb")
-except:
-    pass
+os.makedirs(DB_PATH, exist_ok=True)
+client = chromadb.PersistentClient(path=DB_PATH)
 
-collection = client.get_or_create_collection(name="fraud_kb")
+# Use get_or_create, not get, and don't delete
+collection = client.get_or_create_collection(name=COLLECTION_NAME)
 
-# 3. YOUR KNOWLEDGE BASE - add your fraud docs here
-# You can expand this later
-documents = [
-    "SIM Swap fraud is when an attacker tricks a mobile carrier into transferring a victim's phone number to a new SIM card. They then receive OTPs and drain mobile money like M-Pesa. Signals: new SIM + password reset + large withdrawal within minutes.",
-    "Account Takeover fraud: Attacker gains access to user's M-Pesa PIN via phishing. Signals: login from new device, off-hours transaction, change of location from e.g. Rongai to Isiolo, high velocity.",
-    "Social engineering fraud: Victim is called by someone pretending to be Safaricom. They ask for PIN. Signals: victim initiates reversal shortly after transaction, small test amount then large amount.",
-    "Business Email Compromise and Till fraud: Fraudster pretends to be supplier and asks to pay to new till number. Signals: new beneficiary, round amount like 90,000, first time transaction.",
-    "New account + large amount is highest risk for mobile money fraud. Account age < 7 days and amount > 50000 KES should always be flagged for review, especially if from ASAL region or at night 10pm-5am.",
-    "Velocity fraud: More than 10 transactions in 24h or 3 transactions in 10 minutes indicates bot or mule account. Block and require KYC.",
-]
-
-ids = [f"doc_{i}" for i in range(len(documents))]
-
-collection.add(
-    documents=documents,
-    ids=ids
-)
-
-print(f"✅ RAG knowledge base built! Added {len(collection.get()['ids'])} docs to ./chroma_db")
+# Only build if empty
+if collection.count() == 0:
+    documents = [
+        "SIM Swap fraud: attacker tricks carrier to transfer victim's number to new SIM, receives OTPs, drains M-Pesa. Signals: new SIM + password reset + large withdrawal.",
+        "Account Takeover: PIN stolen via phishing. Signals: new device login, off-hours, location change e.g. Rongai to Isiolo, high velocity.",
+        "Social engineering: fake Safaricom call asking for PIN. Signals: reversal shortly after, small test then large amount.",
+        "Till/Paybill fraud: fake supplier asks to pay new till like 90k. Signals: new beneficiary, round amount, first time.",
+        "High risk rule: Account age <7 days and amount >50000 KES should be flagged, especially ASAL counties at night 10pm-5am.",
+        "Velocity: >10 txns in 24h or 3 in 10min = bot/mule account. Require KYC.",
+    ]
+    collection.add(
+        documents=documents,
+        ids=[f"doc_{i}" for i in range(len(documents))]
+    )
+    print(f"✅ Built {collection.count()} docs in {DB_PATH}/{COLLECTION_NAME}")
+else:
+    print(f"✅ Already exists: {collection.count()} docs")
