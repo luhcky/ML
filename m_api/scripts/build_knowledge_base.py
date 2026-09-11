@@ -30,7 +30,7 @@ if collection.count() == 0:
                {"topic":"social_engineering"},
                {"topic":"till_fraud"},
                {"topic":"high_risk_value"},
-               {"topic":"velocity"},
+               {"topic":"velocity"}],
         ids=[f"doc_{i}" for i in range(len(documents))]
     )
     print(f"✅ Built {collection.count()} docs in {DB_PATH}/{COLLECTION_NAME}")
