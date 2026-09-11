@@ -250,7 +250,7 @@ def root():
         "api"          : "M-PESA Fraud Detection API",
         "version"      : "3.0.0",
         "counties"     : len(KENYA_COUNTIES),
-        "threshold"    : 0.5,
+        "threshold"    : 0.2,
         "shap"         : SHAP_AVAILABLE,
         "rag_chatbot"  : RAG_AVAILABLE,
         "docs"         : "/docs",
@@ -262,7 +262,7 @@ def health():
         "status"          : "healthy",
         "model"           : "XGBoost Pipeline",
         "auc"             : 0.960,
-        "threshold"       : 0.5,
+        "threshold"       : 0.2,
         "feature_count"   : len(FEATURES),
         "shap_available"  : SHAP_AVAILABLE,
         "shap_base_value" : round(EXPECTED_VALUE, 6) if EXPECTED_VALUE else None,
@@ -291,13 +291,13 @@ def predict(tx: MpesaTransaction):
     try:
         X     = build_row(tx)
         prob  = float(pipeline.predict_proba(X)[0][1])
-        fraud = prob >= 0.5
-        alert = "BLOCK" if prob >= 0.70 else "REVIEW" if fraud else "CLEAR"
+        fraud = prob >= 0.2
+        alert = "BLOCK" if prob >= 0.30 else "REVIEW" if fraud else "CLEAR"
         return {
             "fraud_probability": round(prob, 4),
             "fraud_pct"        : round(prob * 100, 2),
             "is_fraud"         : fraud,
-            "threshold_used"   : 0.5,
+            "threshold_used"   : 0.2,
             "alert_level"      : alert,
             "fraud_signals"    : get_fraud_signals(tx),
             "action"           : (
@@ -322,8 +322,8 @@ def predict_explain(tx: MpesaTransaction):
     try:
         X     = build_row(tx)
         prob  = float(pipeline.predict_proba(X)[0][1])
-        fraud = prob >= 0.5
-        alert = "BLOCK" if prob >= 0.70 else "REVIEW" if fraud else "CLEAR"
+        fraud = prob >= 0.2
+        alert = "BLOCK" if prob >= 0.30 else "REVIEW" if fraud else "CLEAR"
 
         X_df      = pd.DataFrame(X, columns=FEATURES)
         shap_vals = EXPLAINER.shap_values(X_df)
@@ -356,7 +356,7 @@ def predict_explain(tx: MpesaTransaction):
             "fraud_probability": round(prob, 4),
             "fraud_pct"        : round(prob * 100, 2),
             "is_fraud"         : fraud,
-            "threshold_used"   : 0.5,
+            "threshold_used"   : 0.2,
             "alert_level"      : alert,
             "fraud_signals"    : get_fraud_signals(tx),
             "action"           : (
@@ -392,8 +392,8 @@ def predict_batch(transactions: List[MpesaTransaction]):
     for tx in transactions:
         X_s   = scaler.transform(build_row(tx))
         prob  = float(pipeline.predict_proba(X_s)[0][1])
-        is_f  = prob >= 0.5
-        alert = "BLOCK" if prob >= 0.70 else "REVIEW" if is_f else "CLEAR"
+        is_f  = prob >= 0.2
+        alert = "BLOCK" if prob >= 0.30 else "REVIEW" if is_f else "CLEAR"
         if is_f: fraud_count += 1
         results.append({
             "fraud_probability": round(prob, 4),
