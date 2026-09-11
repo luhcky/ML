@@ -638,7 +638,7 @@ with tab2:
 
             styled = (
                 df_r[display_cols].style
-                .applymap(color_tier, subset=["risk_tier"])
+                .map(color_tier, subset=["risk_tier"])
                 .format({"churn_probability":"{:.1f}%",
                          "MonthlyCharges":"${:.2f}"})
             )
