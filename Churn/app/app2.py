@@ -174,6 +174,13 @@ with tab1:
         "MultipleLines"   : multi_lines,
     }
 
+    # ── FIX: On click, score the API and STASH the result + the
+    # inputs that produced it in session_state. A button's True value
+    # only exists for the single rerun right after the click — every
+    # other interaction on the page (like moving a What-If slider)
+    # triggers a fresh rerun where predict_btn is False again. Without
+    # session_state, that rerun would fall straight into the "else"
+    # branch and wipe out the whole results view.
     if predict_btn:
         with st.spinner("Scoring and generating SHAP explanation..."):
             try:
@@ -182,13 +189,20 @@ with tab1:
                 if r.status_code != 200:
                     st.error(f"API error {r.status_code}: {r.json()}")
                     st.stop()
-                data = r.json()
+                st.session_state["churn_data"]    = r.json()
+                st.session_state["churn_payload"] = payload
             except requests.exceptions.Timeout:
                 st.error("Request timed out — try again.")
                 st.stop()
             except Exception as e:
                 st.error(f"Connection error: {e}")
                 st.stop()
+
+    # ── FIX: Render off session_state instead of predict_btn, so the
+    # results survive reruns caused by the What-If widgets below.
+    if "churn_data" in st.session_state:
+        data    = st.session_state["churn_data"]
+        payload = st.session_state["churn_payload"]
 
         prob  = data["churn_probability"]
         tier  = data["risk_tier"]
@@ -300,20 +314,20 @@ with tab1:
             sim_contract = st.selectbox(
                 "What if Contract was:",
                 ["Month-to-month","One year","Two year"],
-                index=["Month-to-month","One year","Two year"].index(contract),
+                index=["Month-to-month","One year","Two year"].index(payload["Contract"]),
                 key="sim_contract"
             )
         with sim_c2:
             sim_charges = st.slider(
                 "What if Monthly Charges were ($):",
-                0.0, 200.0, float(monthly), 5.0,
+                0.0, 200.0, float(payload["MonthlyCharges"]), 5.0,
                 key="sim_charges"
             )
         with sim_c3:
             sim_security = st.selectbox(
                 "What if Online Security was:",
                 ["No","Yes"],
-                index=0 if online_sec == "No" else 1,
+                index=0 if payload["OnlineSecurity"] == "No" else 1,
                 key="sim_security"
             )
 
@@ -400,6 +414,14 @@ with tab1:
 
         except Exception as e:
             st.warning(f"Simulation unavailable: {e}")
+
+        # ── Optional: let the user clear the stored result and
+        # start over with a fresh profile.
+        st.divider()
+        if st.button("🔄 Clear result and start over"):
+            del st.session_state["churn_data"]
+            del st.session_state["churn_payload"]
+            st.rerun()
 
     else:
         st.info("👈 Fill in the customer profile and click **Predict + Explain**.")
