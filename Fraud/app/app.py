@@ -262,4 +262,4 @@ with tab2:
                 st.info("No recent predictions to show yet.")
         except Exception as e:
             st.warning(f"Could not load recent predictions: {e}")
-    st.info(f'Risk Level: {risk} | Off-Hours: {"Yes" if off_hours else "No"} | Amount: EUR{amount:.2f}')
+    st.info(f'Risk Level: {risk}  | Amount: USD{amount:.2f}')
