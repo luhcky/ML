@@ -110,7 +110,7 @@ API_URL = "https://employee-attrition-fvgg.onrender.com"
 
 # ── Header ────────────────────────────────────────────────
 st.title("👥 Employee Attrition Prediction")
-st.markdown("**IBM HR Analytics · XGBoost · SHAP Explained · GenAI HR Reports · Batch Scoring**")
+st.markdown("**SHAP Explained · GenAI HR Reports · Batch Scoring**")
 
 # ── API health check ──────────────────────────────────────
 try:
