@@ -508,7 +508,7 @@ Length: 250-350 words."""
             protective_factors, top_driver, employee
         )
         ai_model  = "template_fallback"
-        ai_source = (
+        ai_source = ("."
             
         )
 
