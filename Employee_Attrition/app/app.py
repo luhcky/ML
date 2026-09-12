@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -75,6 +74,35 @@ st.markdown("""
 [data-testid="stDataFrame"], .stAlert {
     border-radius: 14px;
 }
+
+/* ---- AI report card ---- */
+.ai-report-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(124,92,255,0.35);
+    border-radius: 16px;
+    padding: 24px 28px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(124,92,255,0.15);
+    color: #F1F2FA;
+    line-height: 1.65;
+    font-size: 15.5px;
+    white-space: pre-wrap;
+}
+.ai-source-tag {
+    display: inline-block;
+    background: rgba(94,234,212,0.15);
+    border: 1px solid rgba(94,234,212,0.4);
+    color: #5EEAD4;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    margin-bottom: 14px;
+}
+.ai-source-tag.fallback {
+    background: rgba(240,168,104,0.15);
+    border: 1px solid rgba(240,168,104,0.4);
+    color: #F0A868;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -82,109 +110,116 @@ API_URL = "https://employee-attrition-fvgg.onrender.com"
 
 # ── Header ────────────────────────────────────────────────
 st.title("👥 Employee Attrition Prediction")
-st.markdown("**IBM HR Analytics · XGBoost · SHAP Explained · Batch Scoring**")
+st.markdown("**IBM HR Analytics · XGBoost · SHAP Explained · GenAI HR Reports · Batch Scoring**")
 
 # ── API health check ──────────────────────────────────────
 try:
     h = requests.get(f"{API_URL}/health", timeout=3).json()
-    shap_ok = h.get("shap_available", False)
+    shap_ok  = h.get("shap_available", False)
+    genai_ok = h.get("genai_available", False)
     st.success(
         f"✅ API connected — "
-    
-        f"SHAP: {'✓ enabled' if shap_ok else '✗ install shap'}"
+        f"SHAP: {'✓ enabled' if shap_ok else '✗ install shap'} | "
+        f"GenAI: {'✓ Claude enabled' if genai_ok else '✗ template fallback only'}"
     )
 except Exception:
-    st.error("⚠ API not running.Please wait as the API starts then refresh.")
+    st.error("⚠ API not running. Please wait as the API starts then refresh.")
     st.stop()
 
 st.divider()
 
-# ── Tabs — Single vs Batch ────────────────────────────────
-tab1, tab2 = st.tabs(["👤 Single Employee", "📂 Batch CSV Upload"])
+# ── Sidebar inputs (shared by Single Employee + AI HR Report tabs) ────
+with st.sidebar:
+    st.header("Employee Profile")
+
+    with st.expander("Personal", expanded=True):
+        age         = st.slider("Age", 18, 60, 28)
+        gender      = st.selectbox("Gender", ["Male", "Female"])
+        marital     = st.selectbox("Marital Status",
+                        ["Single", "Married", "Divorced"])
+        distance    = st.slider("Distance From Home (miles)", 1, 29, 10)
+
+    with st.expander("Job", expanded=True):
+        dept        = st.selectbox("Department",
+                        ["Research & Development","Sales","Human Resources"])
+        job_role    = st.selectbox("Job Role", [
+            "Sales Executive","Research Scientist","Laboratory Technician",
+            "Manufacturing Director","Healthcare Representative","Manager",
+            "Sales Representative","Research Director","Human Resources"])
+        job_level   = st.selectbox("Job Level (1=Entry, 5=Senior)",
+                        [1,2,3,4,5])
+        job_sat     = st.selectbox("Job Satisfaction",
+                        [1,2,3,4], index=1,
+                        format_func=lambda x:{1:"Low",2:"Medium",
+                                              3:"High",4:"Very High"}[x])
+        overtime    = st.selectbox("Works Overtime?", ["No","Yes"])
+        travel      = st.selectbox("Business Travel",
+                        ["Non-Travel","Travel_Rarely","Travel_Frequently"])
+
+    with st.expander("Compensation", expanded=True):
+        income      = st.number_input("Monthly Income ($)",
+                        1000, 20000, 3500, 500)
+        stock       = st.selectbox("Stock Option Level", [0,1,2,3])
+        hike        = st.slider("Last Salary Hike (%)", 11, 25, 13)
+
+    with st.expander("Experience", expanded=True):
+        total_yrs   = st.slider("Total Working Years", 0, 40, 5)
+        yrs_company = st.slider("Years at Company", 0, 40, 3)
+        yrs_role    = st.slider("Years in Current Role", 0, 18, 2)
+        yrs_promo   = st.slider("Years Since Last Promotion", 0, 15, 1)
+        yrs_mgr     = st.slider("Years With Manager", 0, 17, 2)
+        num_co      = st.slider("Companies Worked At", 0, 9, 2)
+        training    = st.slider("Training Sessions Last Year", 0, 6, 3)
+        env_sat     = st.selectbox("Environment Satisfaction",
+                        [1,2,3,4], index=2,
+                        format_func=lambda x:{1:"Low",2:"Medium",
+                                              3:"High",4:"Very High"}[x])
+        rel_sat     = st.selectbox("Relationship Satisfaction",
+                        [1,2,3,4], index=2,
+                        format_func=lambda x:{1:"Low",2:"Medium",
+                                              3:"High",4:"Very High"}[x])
+        wlb         = st.selectbox("Work-Life Balance",
+                        [1,2,3,4], index=2,
+                        format_func=lambda x:{1:"Bad",2:"Good",
+                                              3:"Better",4:"Best"}[x])
+
+    predict_btn = st.button(
+        "🔍 Predict + Explain",
+        type="primary",
+        use_container_width=True
+    )
+    report_btn = st.button(
+        "🧠 Generate AI HR Report",
+        use_container_width=True
+    )
+
+# Build payload (used by both Single Employee and AI HR Report tabs)
+payload = {
+    "Age": age, "MonthlyIncome": income, "OverTime": overtime,
+    "JobSatisfaction": job_sat, "StockOptionLevel": stock,
+    "JobLevel": job_level, "TotalWorkingYears": total_yrs,
+    "YearsAtCompany": yrs_company, "YearsInCurrentRole": yrs_role,
+    "YearsSinceLastPromotion": yrs_promo, "YearsWithCurrManager": yrs_mgr,
+    "NumCompaniesWorked": num_co, "BusinessTravel": travel,
+    "MaritalStatus": marital, "Department": dept, "JobRole": job_role,
+    "Gender": gender, "EnvironmentSatisfaction": env_sat,
+    "RelationshipSatisfaction": rel_sat, "WorkLifeBalance": wlb,
+    "Education": 3, "JobInvolvement": 3, "PerformanceRating": 3,
+    "PercentSalaryHike": hike, "TrainingTimesLastYear": training,
+    "DistanceFromHome": distance, "DailyRate": 800,
+    "HourlyRate": 65, "MonthlyRate": 14000,
+}
+
+# ── Tabs ────────────────────────────────────────────────
+tab1, tab3, tab2 = st.tabs(
+    ["👤 Single Employee", "🤖 AI HR Report", "📂 Batch CSV Upload"]
+)
 
 # ══════════════════════════════════════════════════════════
 # TAB 1 — SINGLE EMPLOYEE
 # ══════════════════════════════════════════════════════════
 with tab1:
     st.subheader("Score a Single Employee")
-
-    # Sidebar inputs
-    with st.sidebar:
-        st.header("Employee Profile")
-
-        with st.expander("Personal", expanded=True):
-            age         = st.slider("Age", 18, 60, 28)
-            gender      = st.selectbox("Gender", ["Male", "Female"])
-            marital     = st.selectbox("Marital Status",
-                            ["Single", "Married", "Divorced"])
-            distance    = st.slider("Distance From Home (miles)", 1, 29, 10)
-
-        with st.expander("Job", expanded=True):
-            dept        = st.selectbox("Department",
-                            ["Research & Development","Sales","Human Resources"])
-            job_role    = st.selectbox("Job Role", [
-                "Sales Executive","Research Scientist","Laboratory Technician",
-                "Manufacturing Director","Healthcare Representative","Manager",
-                "Sales Representative","Research Director","Human Resources"])
-            job_level   = st.selectbox("Job Level (1=Entry, 5=Senior)",
-                            [1,2,3,4,5])
-            job_sat     = st.selectbox("Job Satisfaction",
-                            [1,2,3,4], index=1,
-                            format_func=lambda x:{1:"Low",2:"Medium",
-                                                  3:"High",4:"Very High"}[x])
-            overtime    = st.selectbox("Works Overtime?", ["No","Yes"])
-            travel      = st.selectbox("Business Travel",
-                            ["Non-Travel","Travel_Rarely","Travel_Frequently"])
-
-        with st.expander("Compensation", expanded=True):
-            income      = st.number_input("Monthly Income ($)",
-                            1000, 20000, 3500, 500)
-            stock       = st.selectbox("Stock Option Level", [0,1,2,3])
-            hike        = st.slider("Last Salary Hike (%)", 11, 25, 13)
-
-        with st.expander("Experience", expanded=True):
-            total_yrs   = st.slider("Total Working Years", 0, 40, 5)
-            yrs_company = st.slider("Years at Company", 0, 40, 3)
-            yrs_role    = st.slider("Years in Current Role", 0, 18, 2)
-            yrs_promo   = st.slider("Years Since Last Promotion", 0, 15, 1)
-            yrs_mgr     = st.slider("Years With Manager", 0, 17, 2)
-            num_co      = st.slider("Companies Worked At", 0, 9, 2)
-            training    = st.slider("Training Sessions Last Year", 0, 6, 3)
-            env_sat     = st.selectbox("Environment Satisfaction",
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:"Low",2:"Medium",
-                                                  3:"High",4:"Very High"}[x])
-            rel_sat     = st.selectbox("Relationship Satisfaction",
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:"Low",2:"Medium",
-                                                  3:"High",4:"Very High"}[x])
-            wlb         = st.selectbox("Work-Life Balance",
-                            [1,2,3,4], index=2,
-                            format_func=lambda x:{1:"Bad",2:"Good",
-                                                  3:"Better",4:"Best"}[x])
-
-        predict_btn = st.button(
-            "🔍 Predict + Explain",
-            type="primary",
-            use_container_width=True
-        )
-
-    # Build payload
-    payload = {
-        "Age": age, "MonthlyIncome": income, "OverTime": overtime,
-        "JobSatisfaction": job_sat, "StockOptionLevel": stock,
-        "JobLevel": job_level, "TotalWorkingYears": total_yrs,
-        "YearsAtCompany": yrs_company, "YearsInCurrentRole": yrs_role,
-        "YearsSinceLastPromotion": yrs_promo, "YearsWithCurrManager": yrs_mgr,
-        "NumCompaniesWorked": num_co, "BusinessTravel": travel,
-        "MaritalStatus": marital, "Department": dept, "JobRole": job_role,
-        "Gender": gender, "EnvironmentSatisfaction": env_sat,
-        "RelationshipSatisfaction": rel_sat, "WorkLifeBalance": wlb,
-        "Education": 3, "JobInvolvement": 3, "PerformanceRating": 3,
-        "PercentSalaryHike": hike, "TrainingTimesLastYear": training,
-        "DistanceFromHome": distance, "DailyRate": 800,
-        "HourlyRate": 65, "MonthlyRate": 14000,
-    }
 
     if predict_btn:
         with st.spinner("Scoring and generating SHAP explanation..."):
@@ -295,6 +330,61 @@ with tab1:
         st.info("👈 Fill in the employee profile and click **Predict + Explain**.")
 
 # ══════════════════════════════════════════════════════════
+# TAB 3 — AI HR REPORT (GenAI)
+# ══════════════════════════════════════════════════════════
+with tab3:
+    st.subheader("🤖 AI-Generated HR Advisory Report")
+    st.caption(
+        "Generates a structured HR report for the employee profile set in the sidebar — "
+        "risk assessment, root-cause analysis, and recommended actions, written in "
+        "plain language. Currently covers a single employee at a time."
+    )
+
+    if report_btn:
+        with st.spinner("Scoring employee and generating AI report..."):
+            try:
+                r = requests.post(f"{API_URL}/predict/report",
+                                    json=payload, timeout=30)
+                if r.status_code != 200:
+                    st.error(f"API error {r.status_code}: {r.text}")
+                    st.stop()
+                data = r.json()
+            except Exception as e:
+                st.error(f"API error: {e}")
+                st.stop()
+
+        prob = data["attrition_probability"]
+        tier = data["risk_tier"]
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Attrition Probability", f"{prob*100:.1f}%")
+        c2.metric("Risk Tier", tier)
+        c3.metric("Top Driver", data.get("top_shap_driver", "—").replace("_", " "))
+        c4.metric("Response", f"{data['processing_ms']}ms")
+
+        is_claude = data.get("ai_model") == "claude-sonnet-4-6"
+        tag_class = "ai-source-tag" if is_claude else "ai-source-tag fallback"
+        tag_text  = "✨ Generated by Claude" if is_claude else "📋 Template fallback (no Claude API key set)"
+
+        st.markdown(f'<span class="{tag_class}">{tag_text}</span>', unsafe_allow_html=True)
+
+        report_text = data.get("ai_report", "No report generated.")
+        st.markdown(
+            f'<div class="ai-report-card">{report_text}</div>',
+            unsafe_allow_html=True
+        )
+
+        if not is_claude:
+            st.caption(
+                "ℹ️ " + data.get("ai_source", "")
+            )
+    else:
+        st.info(
+            "👈 Fill in the employee profile in the sidebar, then click "
+            "**🧠 Generate AI HR Report**."
+        )
+
+# ══════════════════════════════════════════════════════════
 # TAB 2 — BATCH CSV UPLOAD
 # ══════════════════════════════════════════════════════════
 with tab2:
@@ -302,7 +392,9 @@ with tab2:
     st.markdown(
         "Upload a CSV with one employee per row. "
         "The API scores all employees and returns risk tiers, "
-        "probabilities, and recommendations. Download results as CSV."
+        "probabilities, and recommendations. Download results as CSV.\n\n"
+        "**Note:** the AI HR Report feature (previous tab) currently covers a single "
+        "employee at a time and is not yet part of this batch flow."
     )
 
     # ── Template download ─────────────────────────────────
