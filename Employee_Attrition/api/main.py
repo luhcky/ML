@@ -509,8 +509,7 @@ Length: 250-350 words."""
         )
         ai_model  = "template_fallback"
         ai_source = (
-            "Set ANTHROPIC_API_KEY environment variable to enable Claude reports. "
-            "Get your key at console.anthropic.com"
+            
         )
 
     return {
