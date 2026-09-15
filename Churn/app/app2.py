@@ -91,7 +91,7 @@ API_URL = "https://churn-5i6f.onrender.com"
 
 # ── Header ────────────────────────────────────────────────
 st.title("📉 TelcoNova Customer Churn Prediction")
-st.markdown("**IBM Telco · XGBoost · AUC 0.941 · SHAP Explained · What-If Simulator · Batch Scoring**")
+st.markdown("** SHAP Explained · What-If Simulator · Batch Scoring**")
 
 # ── API health check ──────────────────────────────────────
 try:
